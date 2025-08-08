@@ -14,10 +14,13 @@
         constructor(baseURL) { this.baseURL = baseURL || 'http://localhost:8001'; this.token = null; }
         setToken(token) { this.token = token; }
         async request(endpoint, options = {}) {
+            // Перетворюємо залежність get_current_user на параметр запиту
+            const url = this.token ? `${this.baseURL}${endpoint}?token=${this.token}` : `${this.baseURL}${endpoint}`;
             const config = { ...options, headers: { 'Content-Type': 'application/json', ...options.headers } };
-            if (this.token) { config.headers['Authorization'] = `Bearer ${this.token}`; }
+            // Ми більше не будемо передавати токен у заголовку, а як параметр
+            // if (this.token) { config.headers['Authorization'] = `Bearer ${this.token}`; }
             try {
-                const response = await fetch(this.baseURL + endpoint, config);
+                const response = await fetch(url, config); // використовуємо оновлений url
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({ detail: response.statusText }));
                     throw new Error(errorData.detail || `HTTP error! Status: ${response.status}`);
@@ -182,7 +185,8 @@
                     case 'home': html = await this.getHomePage(); break;
                     case 'catalog': html = await this.getCatalogPage(); break;
                     case 'cart': html = this.getCartPage(); break;
-                    case 'profile': html = this.getProfilePage(); break;
+                    // Змінюємо виклик на асинхронний
+                    case 'profile': html = await this.getProfilePage(); break;
                     default: html = `<h2>404 Not Found</h2>`;
                 }
             } catch (error) {
@@ -277,6 +281,59 @@
         async getHomePage() { return `<div class="p-4"><h2>${this.t('app.name')}</h2></div>`; }
         getProfilePage() { return `<div class="p-4"><h2>Профіль</h2></div>`; }
         applyTheme() { const theme = this.tg.getThemeParams(); Object.entries(theme).forEach(([key, value]) => document.documentElement.style.setProperty(`--tg-theme-${key.replace(/_/g, '-')}`, value)); }
+
+        async getProfilePage() {
+            if (!this.user) {
+                return this.showError('User not authenticated. Please restart the app.');
+            }
+
+            const { fullName, username, role, bonuses, language } = this.user;
+
+            return `
+                <div class="profile-page p-3">
+                    <h2 style="margin-bottom: 25px;">Профіль</h2>
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                        <div class="profile-item">
+                            <span class="profile-item__label">Повне ім'я:</span>
+                            <span class="profile-item__value">${fullName}</span>
+                        </div>
+                        <div class="profile-item">
+                            <span class="profile-item__label">Username:</span>
+                            <span class="profile-item__value">@${username || 'не вказано'}</span>
+                        </div>
+                        <div class="profile-item">
+                            <span class="profile-item__label">Роль:</span>
+                            <span class="profile-item__value">${role}</span>
+                        </div>
+                        <div class="profile-item">
+                            <span class="profile-item__label">Мова:</span>
+                            <span class="profile-item__value">${language}</span>
+                        </div>
+                        <div class="profile-item">
+                            <span class="profile-item__label">Бонуси:</span>
+                            <span class="profile-item__value">${bonuses} ✨</span>
+                        </div>
+                    </div>
+                </div>
+                <style>
+                    .profile-item {
+                        background: var(--tg-theme-secondary-bg-color);
+                        padding: 12px 15px;
+                        border-radius: 8px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        font-size: 16px;
+                    }
+                    .profile-item__label {
+                        color: var(--tg-theme-hint-color);
+                    }
+                    .profile-item__value {
+                        font-weight: 500;
+                    }
+                </style>
+            `;
+        }
 
         async loadTranslations(lang) {
             // Використовуємо мову, яку передали, або поточну мову додатку
