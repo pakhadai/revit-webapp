@@ -1,0 +1,17 @@
+{
+  "name": "revit-webapp",
+  "version": "1.0.0",
+  "description": "Telegram Web App for Revit Families",
+  "scripts": {
+    "dev:frontend": "python -m http.server 8000 --directory frontend",
+    "dev:backend": "cd backend && python main.py",
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "start": "npm run dev"
+  },
+  "keywords": ["telegram", "webapp", "revit"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+}

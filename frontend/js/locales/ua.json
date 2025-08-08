@@ -1,0 +1,74 @@
+{
+  "app": {
+    "name": "RevitBot Store",
+    "loading": "Завантаження...",
+    "error": "Помилка"
+  },
+  "navigation": {
+    "home": "Головна",
+    "catalog": "Каталог",
+    "cart": "Кошик",
+    "profile": "Профіль",
+    "admin": "Адмін"
+  },
+  "buttons": {
+    "addToCart": "До кошику",
+    "buy": "Купити",
+    "checkout": "Оформити",
+    "cancel": "Скасувати",
+    "confirm": "Підтвердити",
+    "back": "Назад",
+    "next": "Далі",
+    "save": "Зберегти",
+    "delete": "Видалити",
+    "edit": "Редагувати",
+    "search": "Пошук",
+    "filter": "Фільтр",
+    "sort": "Сортування",
+    "loadMore": "Завантажити ще"
+  },
+  "product": {
+    "price": "Ціна",
+    "discount": "Знижка",
+    "description": "Опис",
+    "specifications": "Характеристики",
+    "reviews": "Відгуки",
+    "similar": "Схожі товари",
+    "new": "Новинка",
+    "sale": "Акція"
+  },
+  "cart": {
+    "empty": "Кошик порожній",
+    "total": "Разом",
+    "subtotal": "Підсумок",
+    "discount": "Знижка",
+    "delivery": "Доставка",
+    "promo": "Промокод",
+    "applyPromo": "Застосувати",
+    "quantity": "Кількість",
+    "remove": "Видалити"
+  },
+  "profile": {
+    "myOrders": "Мої замовлення",
+    "myPurchases": "Мої покупки",
+    "bonuses": "Бонуси",
+    "referral": "Реферальна програма",
+    "settings": "Налаштування",
+    "language": "Мова",
+    "theme": "Тема",
+    "logout": "Вийти"
+  },
+  "errors": {
+    "init_failed": "Не вдалося ініціалізувати додаток",
+    "network": "Помилка мережі",
+    "auth_failed": "Помилка авторизації",
+    "not_found": "Не знайдено",
+    "server_error": "Помилка сервера"
+  },
+  "success": {
+    "added_to_cart": "Додано до кошику",
+    "order_created": "Замовлення створено",
+    "payment_success": "Оплата успішна",
+    "saved": "Збережено"
+  }
+}
