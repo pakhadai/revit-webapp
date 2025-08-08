@@ -1,7 +1,7 @@
 # backend/main.py
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware # <--- ВАЖЛИВИЙ ІМПОРТ
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 from pathlib import Path
@@ -12,8 +12,8 @@ from models.archive import Archive
 from data.mock_data import mock_archives_list
 from sqlalchemy import select, func
 
-# Імпорти для API
-from api import auth, archives, orders
+# Імпорти для API (ДОДАНО ADMIN)
+from api import auth, archives, orders, admin
 from config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -45,25 +45,35 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("Application shutdown.")
 
-# --- СТВОРЕННЯ ТА НАЛАШТУВАННЯ ДОДАТКУ ---
+# --- СТВОРЕННЯ ДОДАТКУ ---
 app = FastAPI(title="RevitBot Web API", version="1.0.0", lifespan=lifespan)
 
-# --- ДОДАЄМО НАЛАШТУВАННЯ CORS ---
-# Цей блок дозволяє фронтенду спілкуватися з бекендом
+# --- НАЛАШТУВАННЯ CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Для розробки дозволяємо всі джерела
+    allow_origins=[
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:3000",
+        "https://web.telegram.org"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],  # Дозволяємо всі методи (GET, POST, OPTIONS і т.д.)
-    allow_headers=["*"],  # Дозволяємо всі заголовки
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
 )
 
-# Підключення роутерів
+# Підключення роутерів (ДОДАНО ADMIN)
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(archives.router, prefix="/api/archives", tags=["archives"])
 app.include_router(orders.router, prefix="/api/orders", tags=["orders"])
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])  # НОВИЙ РОУТЕР
 
 # Тестовий ендпоінт
 @app.get("/")
 async def root():
-    return {"status": "ok"}
+    return {"status": "ok", "message": "RevitBot API is running"}
+
+# Додатковий тест ендпоінт для перевірки CORS
+@app.get("/test")
+async def test():
+    return {"message": "CORS test successful"}

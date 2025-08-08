@@ -8,7 +8,9 @@ from models.user import User
 from config import settings
 import uuid
 from sqlalchemy import select
-from .auth import get_current_user # <--- Імпортуємо залежність
+
+# ВИПРАВЛЕНИЙ ІМПОРТ: імпортуємо нову залежність
+from .auth import get_current_user_dependency
 
 router = APIRouter()
 
@@ -17,9 +19,10 @@ router = APIRouter()
 async def create_order(
     data: dict,
     session: AsyncSession = Depends(get_session),
-    # Захищаємо ендпоінт та отримуємо поточного користувача
-    current_user: User = Depends(get_current_user)
+    # ВИПРАВЛЕННЯ: Використовуємо нову залежність, яка працює з заголовками
+    current_user: User = Depends(get_current_user_dependency)
 ):
+    """Створює нове замовлення для поточного користувача"""
     items = data.get("items", [])
     if not items:
         raise HTTPException(status_code=400, detail="Cart is empty")
@@ -27,6 +30,7 @@ async def create_order(
     total_price = 0
     order_items_to_create = []
 
+    # Перевіряємо всі товари в кошику
     for item_data in items:
         archive_id = item_data.get("id")
         quantity = item_data.get("quantity", 1)
@@ -39,22 +43,29 @@ async def create_order(
 
         price = archive.price
         total_price += price * quantity
-        order_items_to_create.append({"archive_id": archive_id, "quantity": quantity, "price": price})
+        order_items_to_create.append({
+            "archive_id": archive_id,
+            "quantity": quantity,
+            "price": price
+        })
 
+    # Створюємо замовлення
     new_order = Order(
         order_id=str(uuid.uuid4()),
-        # Використовуємо ID реального користувача
+        # Використовуємо ID реального авторизованого користувача
         user_id=current_user.id,
         subtotal=total_price,
         total=total_price
     )
 
+    # У режимі розробки одразу завершуємо замовлення
     if settings.DEV_MODE:
         new_order.status = "completed"
 
     session.add(new_order)
-    await session.flush()
+    await session.flush()  # Отримуємо ID замовлення
 
+    # Створюємо позиції замовлення
     for item in order_items_to_create:
         order_item = OrderItem(
             order_id=new_order.id,
@@ -69,5 +80,7 @@ async def create_order(
     return {
         "success": True,
         "order_id": new_order.order_id,
-        "detail": "Order created successfully (Simulated Payment)"
+        "total": total_price,
+        "status": new_order.status,
+        "detail": "Order created successfully" + (" (Dev Mode - Auto Completed)" if settings.DEV_MODE else "")
     }

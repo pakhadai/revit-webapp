@@ -2,20 +2,21 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
+from typing import List, Dict, Any
 
 from database import get_session
 from models.archive import Archive
-from pydantic import BaseModel, Json
+from pydantic import BaseModel
 
 router = APIRouter()
 
-# Створюємо Pydantic модель для відповіді, щоб уникнути помилок
+
+# ВИПРАВЛЕНА Pydantic модель для відповіді
 class ArchiveOut(BaseModel):
     id: int
     code: str
-    title: Json
-    description: Json
+    title: Dict[str, str]  # Змінено з Json на Dict[str, str]
+    description: Dict[str, str]  # Змінено з Json на Dict[str, str]
     price: float
     discount_percent: int
     archive_type: str
@@ -24,6 +25,7 @@ class ArchiveOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 @router.get("/", response_model=List[ArchiveOut])
 async def get_archives_list(session: AsyncSession = Depends(get_session)):
     """
@@ -31,7 +33,23 @@ async def get_archives_list(session: AsyncSession = Depends(get_session)):
     """
     result = await session.execute(select(Archive))
     archives = result.scalars().all()
-    return archives
+
+    # Для кожного архіву переконуємося, що поля title і description правильно серіалізовані
+    response_data = []
+    for archive in archives:
+        response_data.append({
+            "id": archive.id,
+            "code": archive.code,
+            "title": archive.title if isinstance(archive.title, dict) else {},
+            "description": archive.description if isinstance(archive.description, dict) else {},
+            "price": archive.price,
+            "discount_percent": archive.discount_percent,
+            "archive_type": archive.archive_type,
+            "image_path": archive.image_path or "/images/placeholder.png"
+        })
+
+    return response_data
+
 
 @router.get("/{archive_id}", response_model=ArchiveOut)
 async def get_archive_details(archive_id: int, session: AsyncSession = Depends(get_session)):
@@ -42,4 +60,14 @@ async def get_archive_details(archive_id: int, session: AsyncSession = Depends(g
     archive = result.scalar_one_or_none()
     if not archive:
         raise HTTPException(status_code=404, detail="Archive not found")
-    return archive
+
+    return {
+        "id": archive.id,
+        "code": archive.code,
+        "title": archive.title if isinstance(archive.title, dict) else {},
+        "description": archive.description if isinstance(archive.description, dict) else {},
+        "price": archive.price,
+        "discount_percent": archive.discount_percent,
+        "archive_type": archive.archive_type,
+        "image_path": archive.image_path or "/images/placeholder.png"
+    }

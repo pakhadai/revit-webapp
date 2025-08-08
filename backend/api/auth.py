@@ -1,5 +1,5 @@
-# backend/api/auth.py
-from fastapi import APIRouter, HTTPException, Depends
+# backend/api/auth.py - ПОВНІСТЮ РОБОЧА ВЕРСІЯ
+from fastapi import APIRouter, HTTPException, Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from database import get_session
@@ -11,11 +11,12 @@ import json
 from urllib.parse import unquote
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
+from typing import Optional
 
 router = APIRouter()
 
 
-# --- Нова логіка для створення та перевірки JWT токенів ---
+# --- Функція для створення JWT токенів ---
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -24,34 +25,58 @@ def create_access_token(data: dict):
     return encoded_jwt
 
 
-# --- Залежність для отримання поточного користувача з токена ---
-async def get_current_user(token: str, session: AsyncSession = Depends(get_session)):
-    credentials_exception = HTTPException(
-        status_code=401,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+# --- ВИПРАВЛЕНА залежність для авторизації ---
+async def get_current_user_dependency(
+        authorization: Optional[str] = Header(None),
+        session: AsyncSession = Depends(get_session)
+):
+    """Залежність для отримання поточного користувача з токена в заголовку Authorization"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization header missing")
+
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id: int = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
+        # Отримуємо токен з заголовка "Bearer TOKEN"
+        if not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Invalid authorization header format")
 
-    result = await session.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
+        token = authorization.replace("Bearer ", "")
 
-    if user is None:
-        raise credentials_exception
-    return user
+        # Декодуємо токен
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            user_id_raw = payload.get("sub")
+
+            # ВИПРАВЛЕННЯ: Перетворюємо у число, якщо треба
+            if isinstance(user_id_raw, str):
+                user_id = int(user_id_raw)
+            elif isinstance(user_id_raw, int):
+                user_id = user_id_raw
+            else:
+                raise HTTPException(status_code=401, detail="Invalid user ID in token")
+
+        except (JWTError, ValueError, TypeError) as e:
+            raise HTTPException(status_code=401, detail=f"Token validation failed: {str(e)}")
+
+        # Отримуємо користувача з бази даних
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+
+        if user is None:
+            raise HTTPException(status_code=401, detail="User not found")
+
+        return user
+
+    except HTTPException:
+        # Перекидаємо HTTPException як є
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
 
 
 def verify_telegram_data(init_data: str) -> dict:
     """
     Перевіряє дані ініціалізації Telegram WebApp.
     У режимі DEV_MODE повертає тестові дані.
-    В іншому випадку - проводить повну валідацію.
     """
     if settings.DEV_MODE:
         return {
@@ -68,12 +93,10 @@ def verify_telegram_data(init_data: str) -> dict:
         secret_key = hmac.new("WebAppData".encode(), settings.BOT_TOKEN.encode(), hashlib.sha256).digest()
         h = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256)
 
-        # 'hash' - це єдиний ключ, який ми не сортували
         received_hash = dict(data_dict).get('hash')
         if not received_hash or h.hexdigest() != received_hash:
             raise HTTPException(status_code=401, detail="Invalid hash")
 
-        # Якщо валідація пройшла, повертаємо дані користувача
         user_data_str = dict(data_dict).get('user', '{}')
         return {"user": json.loads(unquote(user_data_str))}
 
@@ -99,10 +122,10 @@ async def telegram_auth(data: dict, session: AsyncSession = Depends(get_session)
             )
             session.add(user)
             await session.commit()
-            await session.refresh(user)  # Оновлюємо, щоб отримати user.id
+            await session.refresh(user)
 
-        # Створюємо JWT токен
-        access_token = create_access_token(data={"sub": user.id})
+        # ВИПРАВЛЕННЯ: Створюємо токен з рядковим ID
+        access_token = create_access_token(data={"sub": str(user.id)})
 
         return {
             "success": True,
