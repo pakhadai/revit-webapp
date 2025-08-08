@@ -1,105 +1,69 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+# backend/main.py
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware # <--- ВАЖЛИВИЙ ІМПОРТ
 from contextlib import asynccontextmanager
 import logging
 from pathlib import Path
 
-from database import engine, init_db
-from config import settings
-from api import auth, archives, cart, payments, users, admin
+# Імпорти для роботи з БД
+from database import engine, Base, async_session
+from models.archive import Archive
+from data.mock_data import mock_archives_list
+from sqlalchemy import select, func
 
-# Setup logging
+# Імпорти для API
+from api import auth, archives, orders
+from config import settings
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# --- ЛОГІКА ЗАПУСКУ ТА НАПОВНЕННЯ БД ---
+async def init_db():
+    """Створює всі таблиці в базі даних."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables created.")
+
+async def seed_data():
+    """Заповнює таблицю архівів тестовими даними."""
+    async with async_session() as session:
+        result = await session.execute(select(func.count(Archive.id)))
+        if result.scalar_one() == 0:
+            logger.info("Database is empty. Seeding mock archives...")
+            for archive_data in mock_archives_list:
+                session.add(Archive(**archive_data))
+            await session.commit()
+            logger.info("Mock archives have been seeded.")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup and shutdown events"""
-    # Startup
-    logger.info("Starting up...")
-
-    # Create database directory if not exists
-    db_path = Path("database")
-    db_path.mkdir(exist_ok=True)
-
-    # Initialize database
+    logger.info("Application startup...")
     await init_db()
-    logger.info("Database initialized")
-
+    await seed_data()
     yield
+    logger.info("Application shutdown.")
 
-    # Shutdown
-    logger.info("Shutting down...")
+# --- СТВОРЕННЯ ТА НАЛАШТУВАННЯ ДОДАТКУ ---
+app = FastAPI(title="RevitBot Web API", version="1.0.0", lifespan=lifespan)
 
-
-# Create app
-app = FastAPI(
-    title="RevitBot Web API",
-    version="1.0.0",
-    lifespan=lifespan
-)
-
-# CORS middleware
+# --- ДОДАЄМО НАЛАШТУВАННЯ CORS ---
+# Цей блок дозволяє фронтенду спілкуватися з бекендом
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8000",
-        "http://localhost:3000",
-        "https://web.telegram.org",
-        "*"  # For development
-    ],
+    allow_origins=["*"],  # Для розробки дозволяємо всі джерела
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Дозволяємо всі методи (GET, POST, OPTIONS і т.д.)
+    allow_headers=["*"],  # Дозволяємо всі заголовки
 )
 
+# Підключення роутерів
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(archives.router, prefix="/api/archives", tags=["archives"])
+app.include_router(orders.router, prefix="/api/orders", tags=["orders"])
 
-# Health check
+# Тестовий ендпоінт
 @app.get("/")
 async def root():
-    return {
-        "status": "ok",
-        "name": "RevitBot Web API",
-        "version": "1.0.0"
-    }
-
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
-
-
-# Include routers (we'll create empty routers for now)
-# app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-# app.include_router(archives.router, prefix="/api/archives", tags=["archives"])
-# app.include_router(cart.router, prefix="/api/cart", tags=["cart"])
-# app.include_router(payments.router, prefix="/api/payments", tags=["payments"])
-# app.include_router(users.router, prefix="/api/users", tags=["users"])
-# app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
-
-# Temporary test endpoint
-@app.post("/api/auth/telegram")
-async def telegram_auth(data: dict):
-    """Temporary auth endpoint for testing"""
-    return {
-        "success": True,
-        "token": "test-token-123",
-        "user": {
-            "id": 1,
-            "username": "testuser",
-            "isAdmin": True,
-            "language": "ua"
-        }
-    }
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8001,
-        reload=True
-    )
+    return {"status": "ok"}
