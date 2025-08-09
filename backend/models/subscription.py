@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Enum
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
 from sqlalchemy.sql import func
+from sqlalchemy.types import Enum as SQLEnum
 from database import Base
 import enum
 
@@ -23,8 +24,8 @@ class Subscription(Base):
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
 
     # План і статус
-    plan = Column(Enum(SubscriptionPlan), default=SubscriptionPlan.MONTHLY)
-    status = Column(Enum(SubscriptionStatus), default=SubscriptionStatus.PENDING)
+    plan = Column(SQLEnum(SubscriptionPlan), default=SubscriptionPlan.MONTHLY)
+    status = Column(SQLEnum(SubscriptionStatus), default=SubscriptionStatus.PENDING)
 
     # Дати
     start_date = Column(DateTime, nullable=False)

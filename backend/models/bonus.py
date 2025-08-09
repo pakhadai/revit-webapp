@@ -1,8 +1,8 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Date, Enum
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Date
+from sqlalchemy.types import Enum as SQLEnum  # ЗМІНИТИ
 from sqlalchemy.sql import func
 from database import Base
 import enum
-
 
 class BonusTransactionType(enum.Enum):
     # Нарахування
@@ -29,7 +29,7 @@ class BonusTransaction(Base):
     amount = Column(Integer, nullable=False)  # Додатнє для нарахування, від'ємне для витрат
     balance_after = Column(Integer, nullable=False)  # Баланс після транзакції
 
-    type = Column(Enum(BonusTransactionType), nullable=False)
+    type = Column(SQLEnum(BonusTransactionType), nullable=False)
     description = Column(String(255))
 
     # Зв'язки з іншими сутностями

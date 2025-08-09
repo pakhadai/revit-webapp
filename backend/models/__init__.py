@@ -2,8 +2,9 @@ from .user import User
 from .archive import Archive, ArchivePurchase
 from .order import Order, OrderItem
 from .payment import Payment
-from .subscription import Subscription, SubscriptionArchive
-from .bonus import BonusTransaction, DailyBonus, UserReferral, VipLevel
+# ПЕРЕВІРТЕ ЧИ Є ЦІ ФАЙЛИ:
+from .subscription import Subscription, SubscriptionArchive, SubscriptionStatus, SubscriptionPlan
+from .bonus import BonusTransaction, DailyBonus, UserReferral, VipLevel, BonusTransactionType
 
 __all__ = [
     'User',
