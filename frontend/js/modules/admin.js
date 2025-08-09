@@ -18,7 +18,74 @@ window.AdminModule = {
                             ${this.getActionButton('📦 Товари', 'Управління каталогом', 'AdminModule.showArchives(window.app)')}
                             ${this.getActionButton('📊 Статистика', 'Детальна аналітика', 'AdminModule.showStats(window.app)')}
                         </div>
-        `;
+                    </div>
+
+                    <!-- Загальна статистика -->
+                    <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
+                        ${this.getStatCard('👥 Користувачі', dashboard.total_stats.users, dashboard.recent_stats.new_users + ' нових')}
+                        ${this.getStatCard('📦 Архіви', dashboard.total_stats.archives, 'товарів')}
+                        ${this.getStatCard('🛒 Замовлення', dashboard.total_stats.orders, dashboard.recent_stats.new_orders + ' нових')}
+                        ${this.getStatCard('💰 Дохід', '$' + dashboard.total_stats.revenue.toFixed(2), '$' + dashboard.recent_stats.revenue.toFixed(2) + ' за місяць')}
+                    </div>
+
+                    <!-- Топ товари -->
+                    <div class="top-archives" style="margin-bottom: 30px;">
+                        <h3 style="margin-bottom: 15px;">🔥 Популярні товари</h3>
+                        <div style="background: var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 15px;">
+                            ${dashboard.top_archives.map(archive => `
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--tg-theme-bg-color);">
+                                    <div>
+                                        <strong>${archive.title}</strong>
+                                        <div style="font-size: 12px; color: var(--tg-theme-hint-color);">${archive.code}</div>
+                                    </div>
+                                    <span style="color: var(--primary-color); font-weight: bold;">${archive.sales} продажів</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <style>
+                    .stats-grid .stat-card {
+                        background: var(--tg-theme-bg-color);
+                        border: 1px solid var(--tg-theme-secondary-bg-color);
+                        border-radius: 12px;
+                        padding: 20px;
+                        text-align: center;
+                    }
+                    .stat-card h4 {
+                        margin: 0 0 10px;
+                        color: var(--tg-theme-hint-color);
+                        font-size: 14px;
+                    }
+                    .stat-card .value {
+                        font-size: 28px;
+                        font-weight: bold;
+                        color: var(--primary-color);
+                        margin-bottom: 5px;
+                    }
+                    .stat-card .subtitle {
+                        font-size: 12px;
+                        color: var(--tg-theme-hint-color);
+                    }
+                    .action-button {
+                        background: var(--tg-theme-bg-color);
+                        border: 1px solid var(--tg-theme-secondary-bg-color);
+                        border-radius: 12px;
+                        padding: 20px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        text-align: center;
+                    }
+                    .action-button:hover {
+                        background: var(--tg-theme-secondary-bg-color);
+                        transform: translateY(-2px);
+                    }
+                </style>
+            `;
+        } catch (error) {
+            return `<div style="text-align: center; padding: 50px;"><h3>Помилка</h3><p>Не вдалося завантажити адмін панель: ${error.message}</p></div>`;
+        }
     },
 
     // --- СТОРІНКА КОРИСТУВАЧІВ ---
@@ -81,7 +148,7 @@ window.AdminModule = {
                                         <div style="font-size: 12px; color: var(--tg-theme-hint-color);">${new Date(order.created_at).toLocaleDateString('uk-UA')} ${new Date(order.created_at).toLocaleTimeString('uk-UA')}</div>
                                     </div>
                                     <div style="text-align: right;">
-                                        <div style="color: var(--primary-color); font-weight: bold; font-size: 18px;">${order.total}</div>
+                                        <div style="color: var(--primary-color); font-weight: bold; font-size: 18px;">$${order.total}</div>
                                         <div style="font-size: 14px; color: ${order.status === 'completed' ? 'green' : 'orange'};">${order.status}</div>
                                     </div>
                                 </div>
@@ -90,7 +157,7 @@ window.AdminModule = {
                                     <strong>Товари:</strong>
                                     ${order.items.map(item => `
                                         <div style="font-size: 14px; margin: 5px 0;">
-                                            • ${item.archive_title.ua || item.archive_code} (${item.quantity}x) - ${item.price}
+                                            • ${item.archive_title} (${item.quantity}x) - $${item.price}
                                         </div>
                                     `).join('')}
                                 </div>
@@ -141,7 +208,7 @@ window.AdminModule = {
                                     </div>
                                     <div style="text-align: right;">
                                         <div style="color: var(--primary-color); font-weight: bold; font-size: 18px; margin-bottom: 10px;">
-                                            ${archive.price}
+                                            $${archive.price}
                                             ${archive.discount_percent > 0 ? `<span style="font-size: 14px; color: red;">(-${archive.discount_percent}%)</span>` : ''}
                                         </div>
                                         <div style="display: flex; gap: 5px;">
@@ -180,94 +247,7 @@ window.AdminModule = {
                             ${this.getStatCard('👥 Всього користувачів', dashboard.total_stats.users, 'зареєстровано')}
                             ${this.getStatCard('📦 Всього товарів', dashboard.total_stats.archives, 'в каталозі')}
                             ${this.getStatCard('🛒 Всього замовлень', dashboard.total_stats.orders, 'оформлено')}
-                            ${this.getStatCard('💰 Загальний дохід', '
-                    </div>
-
-                    <!-- Загальна статистика -->
-                    <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
-                        ${this.getStatCard('👥 Користувачі', dashboard.total_stats.users, dashboard.recent_stats.new_users + ' нових')}
-                        ${this.getStatCard('📦 Архіви', dashboard.total_stats.archives, 'товарів')}
-                        ${this.getStatCard('🛒 Замовлення', dashboard.total_stats.orders, dashboard.recent_stats.new_orders + ' нових')}
-                        ${this.getStatCard('💰 Дохід', '$' + dashboard.total_stats.revenue.toFixed(2), '$' + dashboard.recent_stats.revenue.toFixed(2) + ' за місяць')}
-                    </div>
-
-                    <!-- Топ товари -->
-                    <div class="top-archives" style="margin-bottom: 30px;">
-                        <h3 style="margin-bottom: 15px;">🔥 Популярні товари</h3>
-                        <div style="background: var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 15px;">
-                            ${dashboard.top_archives.map(archive => `
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--tg-theme-bg-color);">
-                                    <div>
-                                        <strong>${archive.title.ua || archive.title.en || archive.code}</strong>
-                                        <div style="font-size: 12px; color: var(--tg-theme-hint-color);">${archive.code}</div>
-                                    </div>
-                                    <span style="color: var(--primary-color); font-weight: bold;">${archive.sales} продажів</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-
-                <style>
-                    .stats-grid .stat-card {
-                        background: var(--tg-theme-bg-color);
-                        border: 1px solid var(--tg-theme-secondary-bg-color);
-                        border-radius: 12px;
-                        padding: 20px;
-                        text-align: center;
-                    }
-                    .stat-card h4 {
-                        margin: 0 0 10px;
-                        color: var(--tg-theme-hint-color);
-                        font-size: 14px;
-                    }
-                    .stat-card .value {
-                        font-size: 28px;
-                        font-weight: bold;
-                        color: var(--primary-color);
-                        margin-bottom: 5px;
-                    }
-                    .stat-card .subtitle {
-                        font-size: 12px;
-                        color: var(--tg-theme-hint-color);
-                    }
-                    .action-button {
-                        background: var(--tg-theme-bg-color);
-                        border: 1px solid var(--tg-theme-secondary-bg-color);
-                        border-radius: 12px;
-                        padding: 20px;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                        text-align: center;
-                    }
-                    .action-button:hover {
-                        background: var(--tg-theme-secondary-bg-color);
-                        transform: translateY(-2px);
-                    }
-                </style>
-            `;
-        } catch (error) {
-            return `<div style="text-align: center; padding: 50px;"><h3>Помилка</h3><p>Не вдалося завантажити адмін панель: ${error.message}</p></div>`;
-        }
-    },
-
-    // --- ДОПОМІЖНІ ФУНКЦІЇ ---
-    getStatCard(title, value, subtitle) {
-        return `
-            <div class="stat-card">
-                <h4>${title}</h4>
-                <div class="value">${value}</div>
-                <div class="subtitle">${subtitle}</div>
-            </div>
-        `;
-    },
-
-    getActionButton(title, description, onclick) {
-        return `
-            <div class="action-button" onclick="${onclick}">
-                <h4 style="margin: 0 0 8px; color: var(--primary-color);">${title}</h4>
-                <p style="margin: 0; font-size: 14px; color: var(--tg-theme-hint-color);">${description}</p>
-            </div> + dashboard.total_stats.revenue.toFixed(2), 'USD')}
+                            ${this.getStatCard('💰 Загальний дохід', '$' + dashboard.total_stats.revenue.toFixed(2), 'USD')}
                         </div>
                     </div>
 
@@ -277,94 +257,7 @@ window.AdminModule = {
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                             ${this.getStatCard('👥 Нові користувачі', dashboard.recent_stats.new_users, 'приєдналось')}
                             ${this.getStatCard('🛒 Нові замовлення', dashboard.recent_stats.new_orders, 'оформлено')}
-                            ${this.getStatCard('💰 Дохід за місяць', '
-                    </div>
-
-                    <!-- Загальна статистика -->
-                    <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
-                        ${this.getStatCard('👥 Користувачі', dashboard.total_stats.users, dashboard.recent_stats.new_users + ' нових')}
-                        ${this.getStatCard('📦 Архіви', dashboard.total_stats.archives, 'товарів')}
-                        ${this.getStatCard('🛒 Замовлення', dashboard.total_stats.orders, dashboard.recent_stats.new_orders + ' нових')}
-                        ${this.getStatCard('💰 Дохід', '$' + dashboard.total_stats.revenue.toFixed(2), '$' + dashboard.recent_stats.revenue.toFixed(2) + ' за місяць')}
-                    </div>
-
-                    <!-- Топ товари -->
-                    <div class="top-archives" style="margin-bottom: 30px;">
-                        <h3 style="margin-bottom: 15px;">🔥 Популярні товари</h3>
-                        <div style="background: var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 15px;">
-                            ${dashboard.top_archives.map(archive => `
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--tg-theme-bg-color);">
-                                    <div>
-                                        <strong>${archive.title.ua || archive.title.en || archive.code}</strong>
-                                        <div style="font-size: 12px; color: var(--tg-theme-hint-color);">${archive.code}</div>
-                                    </div>
-                                    <span style="color: var(--primary-color); font-weight: bold;">${archive.sales} продажів</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-
-                <style>
-                    .stats-grid .stat-card {
-                        background: var(--tg-theme-bg-color);
-                        border: 1px solid var(--tg-theme-secondary-bg-color);
-                        border-radius: 12px;
-                        padding: 20px;
-                        text-align: center;
-                    }
-                    .stat-card h4 {
-                        margin: 0 0 10px;
-                        color: var(--tg-theme-hint-color);
-                        font-size: 14px;
-                    }
-                    .stat-card .value {
-                        font-size: 28px;
-                        font-weight: bold;
-                        color: var(--primary-color);
-                        margin-bottom: 5px;
-                    }
-                    .stat-card .subtitle {
-                        font-size: 12px;
-                        color: var(--tg-theme-hint-color);
-                    }
-                    .action-button {
-                        background: var(--tg-theme-bg-color);
-                        border: 1px solid var(--tg-theme-secondary-bg-color);
-                        border-radius: 12px;
-                        padding: 20px;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                        text-align: center;
-                    }
-                    .action-button:hover {
-                        background: var(--tg-theme-secondary-bg-color);
-                        transform: translateY(-2px);
-                    }
-                </style>
-            `;
-        } catch (error) {
-            return `<div style="text-align: center; padding: 50px;"><h3>Помилка</h3><p>Не вдалося завантажити адмін панель: ${error.message}</p></div>`;
-        }
-    },
-
-    // --- ДОПОМІЖНІ ФУНКЦІЇ ---
-    getStatCard(title, value, subtitle) {
-        return `
-            <div class="stat-card">
-                <h4>${title}</h4>
-                <div class="value">${value}</div>
-                <div class="subtitle">${subtitle}</div>
-            </div>
-        `;
-    },
-
-    getActionButton(title, description, onclick) {
-        return `
-            <div class="action-button" onclick="${onclick}">
-                <h4 style="margin: 0 0 8px; color: var(--primary-color);">${title}</h4>
-                <p style="margin: 0; font-size: 14px; color: var(--tg-theme-hint-color);">${description}</p>
-            </div> + dashboard.recent_stats.revenue.toFixed(2), 'USD')}
+                            ${this.getStatCard('💰 Дохід за місяць', '$' + dashboard.recent_stats.revenue.toFixed(2), 'USD')}
                             ${this.getStatCard('📈 Конверсія', ((dashboard.recent_stats.new_orders / Math.max(dashboard.recent_stats.new_users, 1)) * 100).toFixed(1) + '%', 'замовлень/користувач')}
                         </div>
                     </div>
@@ -380,7 +273,7 @@ window.AdminModule = {
                                             ${index + 1}
                                         </div>
                                         <div>
-                                            <strong>${archive.title.ua || archive.title.en || archive.code}</strong>
+                                            <strong>${archive.title}</strong>
                                             <div style="font-size: 12px; color: var(--tg-theme-hint-color);">${archive.code}</div>
                                         </div>
                                     </div>
@@ -397,76 +290,6 @@ window.AdminModule = {
         } catch (error) {
             app.showError(`Помилка завантаження статистики: ${error.message}`);
         }
-    }
-};
-                    </div>
-
-                    <!-- Загальна статистика -->
-                    <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
-                        ${this.getStatCard('👥 Користувачі', dashboard.total_stats.users, dashboard.recent_stats.new_users + ' нових')}
-                        ${this.getStatCard('📦 Архіви', dashboard.total_stats.archives, 'товарів')}
-                        ${this.getStatCard('🛒 Замовлення', dashboard.total_stats.orders, dashboard.recent_stats.new_orders + ' нових')}
-                        ${this.getStatCard('💰 Дохід', '$' + dashboard.total_stats.revenue.toFixed(2), '$' + dashboard.recent_stats.revenue.toFixed(2) + ' за місяць')}
-                    </div>
-
-                    <!-- Топ товари -->
-                    <div class="top-archives" style="margin-bottom: 30px;">
-                        <h3 style="margin-bottom: 15px;">🔥 Популярні товари</h3>
-                        <div style="background: var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 15px;">
-                            ${dashboard.top_archives.map(archive => `
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--tg-theme-bg-color);">
-                                    <div>
-                                        <strong>${archive.title.ua || archive.title.en || archive.code}</strong>
-                                        <div style="font-size: 12px; color: var(--tg-theme-hint-color);">${archive.code}</div>
-                                    </div>
-                                    <span style="color: var(--primary-color); font-weight: bold;">${archive.sales} продажів</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-
-                <style>
-                    .stats-grid .stat-card {
-                        background: var(--tg-theme-bg-color);
-                        border: 1px solid var(--tg-theme-secondary-bg-color);
-                        border-radius: 12px;
-                        padding: 20px;
-                        text-align: center;
-                    }
-                    .stat-card h4 {
-                        margin: 0 0 10px;
-                        color: var(--tg-theme-hint-color);
-                        font-size: 14px;
-                    }
-                    .stat-card .value {
-                        font-size: 28px;
-                        font-weight: bold;
-                        color: var(--primary-color);
-                        margin-bottom: 5px;
-                    }
-                    .stat-card .subtitle {
-                        font-size: 12px;
-                        color: var(--tg-theme-hint-color);
-                    }
-                    .action-button {
-                        background: var(--tg-theme-bg-color);
-                        border: 1px solid var(--tg-theme-secondary-bg-color);
-                        border-radius: 12px;
-                        padding: 20px;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                        text-align: center;
-                    }
-                    .action-button:hover {
-                        background: var(--tg-theme-secondary-bg-color);
-                        transform: translateY(-2px);
-                    }
-                </style>
-            `;
-        } catch (error) {
-            return `<div style="text-align: center; padding: 50px;"><h3>Помилка</h3><p>Не вдалося завантажити адмін панель: ${error.message}</p></div>`;
-        }
     },
 
     // --- ДОПОМІЖНІ ФУНКЦІЇ ---
@@ -486,3 +309,6 @@ window.AdminModule = {
                 <h4 style="margin: 0 0 8px; color: var(--primary-color);">${title}</h4>
                 <p style="margin: 0; font-size: 14px; color: var(--tg-theme-hint-color);">${description}</p>
             </div>
+        `;
+    }
+};

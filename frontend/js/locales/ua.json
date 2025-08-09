@@ -14,62 +14,105 @@
   "buttons": {
     "addToCart": "До кошику",
     "buy": "Купити",
+    "download": "Завантажити",
+    "unlock": "Розблокувати",
     "checkout": "Оформити замовлення",
     "cancel": "Скасувати",
     "confirm": "Підтвердити",
     "back": "Назад",
     "next": "Далі",
-    "inCart": "Вже у кошику",
+    "inCart": "У кошику",
     "save": "Зберегти",
     "delete": "Видалити",
     "edit": "Редагувати",
     "search": "Пошук",
     "filter": "Фільтр",
     "sort": "Сортування",
-    "loadMore": "Завантажити ще"
+    "loadMore": "Завантажити ще",
+    "apply": "Застосувати",
+    "reset": "Скинути"
   },
-  "product": {
-    "price": "Ціна",
-    "discount": "Знижка",
-    "description": "Опис",
-    "specifications": "Характеристики",
-    "reviews": "Відгуки",
-    "similar": "Схожі товари",
-    "new": "Новинка",
-    "sale": "Акція"
+  "catalog": {
+    "empty": "Каталог порожній",
+    "loading": "Завантаження товарів...",
+    "foundProducts": "Знайдено товарів",
+    "notFound": "Товарів не знайдено",
+    "tryChangeSearch": "Спробуйте змінити параметри пошуку"
   },
-  "cart": {
-    "empty": "Кошик порожній",
-    "total": "Разом",
-    "subtotal": "Підсумок",
-    "discount": "Знижка",
-    "delivery": "Доставка",
-    "promo": "Промокод",
-    "applyPromo": "Застосувати",
-    "quantity": "Кількість",
-    "remove": "Видалити"
+  "search": {
+    "placeholder": "Пошук товарів..."
   },
-  "profile": {
-    "myOrders": "Мої замовлення",
-    "myPurchases": "Мої покупки",
-    "bonuses": "Бонуси",
-    "referral": "Реферальна програма",
-    "settings": "Налаштування",
-    "language": "Мова",
-    "theme": "Тема",
-    "logout": "Вийти"
+  "filter": {
+    "allTypes": "Всі типи",
+    "premium": "Premium",
+    "free": "Безкоштовні",
+    "minPrice": "Мін. ціна ($)",
+    "maxPrice": "Макс. ціна ($)",
+    "activeFilters": "Активні фільтри",
+    "search": "Пошук",
+    "type": "Тип",
+    "from": "Від",
+    "to": "До"
+  },
+  "sort": {
+    "default": "За замовчуванням",
+    "priceAsc": "Ціна: зростання",
+    "priceDesc": "Ціна: спадання",
+    "title": "За назвою",
+    "newest": "Найновіші"
   },
   "errors": {
     "init_failed": "Не вдалося ініціалізувати додаток",
     "network": "Помилка мережі",
     "auth_failed": "Помилка авторизації",
     "not_found": "Не знайдено",
-    "server_error": "Помилка сервера"
+    "server_error": "Помилка сервера",
+    "purchaseFailed": "Помилка оформлення",
+    "loadingArchives": "Помилка завантаження архівів",
+    "loadCatalog": "Не вдалося завантажити каталог",
+    "filterError": "Помилка фільтрації"
   },
-  "success": {
-    "added_to_cart": "Додано до кошику",
-    "order_created": "Замовлення створено",
-    "payment_success": "Оплата успішна",
-    "saved": "Збережено"
-  }
+
+  "subscription": {
+    "active": "Premium підписка активна",
+    "monthly": "Місячна",
+    "yearly": "Річна",
+    "validUntil": "Діє до",
+    "daysLeft": "Днів залишилось",
+    "myArchives": "Мої архіви",
+    "cancelAuto": "Скасувати автопродовження",
+    "expiringWarning": "Ваша підписка скоро закінчується! Продовжте, щоб не втратити доступ",
+    "promoText": "Необмежений доступ до всіх нових архівів",
+    "newArchivesWeekly": "Щотижня додаємо 5+ нових сімейств Revit",
+    "benefit1": "Всі нові архіви",
+    "benefit2": "Щотижневі оновлення",
+    "benefit3": "Зберігайте назавжди",
+    "benefit4": "Підтримка 24/7",
+    "perMonth": "на місяць",
+    "perYear": "на рік",
+    "months": "місяців",
+    "month": "місяць",
+    "orPayWithBonuses": "Або оплатіть бонусами",
+    "purchase": "Оформлення підписки",
+    "saveYearly": "Економія",
+    "paymentMethod": "Спосіб оплати",
+    "payWithBonuses": "Оплатити бонусами",
+    "payWithCrypto": "Оплатити криптою",
+    "notEnoughBonuses": "Не вистачає бонусів:",
+    "info": "Після активації підписки ви отримаєте доступ до всіх нових архівів, що вийдуть протягом терміну дії підписки. Архіви залишаються доступними назавжди!",
+    "activated": "Підписка активована",
+    "redirectToPayment": "Перенаправляємо на сторінку оплати...",
+    "activeUntil": "Активна до",
+    "archivesUnlocked": "архівів розблоковано",
+    "noActiveSubscription": "У вас немає активної підписки",
+    "getSubscription": "Оформити підписку",
+    "fromPreviousSub": "З попередньої підписки",
+    "notAvailable": "Недоступно",
+    "archiveUnlocked": "Архів розблоковано",
+    "downloadStarted": "Завантаження розпочато",
+    "confirmCancel": "Ви впевнені, що хочете скасувати автопродовження?",
+    "autoRenewCancelled": "Автопродовження скасовано"
+  },
+
+  "bonuses": "бонусів"
 }

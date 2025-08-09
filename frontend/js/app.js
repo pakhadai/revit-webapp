@@ -127,6 +127,12 @@
                 this.applyTheme();
                 await this.loadTranslations();
                 await this.authenticate();
+
+                // Попередньо завантажуємо адмін модулі, якщо користувач - адмін
+                if (this.user?.isAdmin) {
+                    await this.preloadAdminModules();
+                }
+
                 this.setupUI();
                 await this.loadPage('home');
                 this.updateCartBadge();
@@ -136,6 +142,23 @@
             } catch (error) {
                 console.error('❌ Init error:', error);
                 this.showError('Failed to initialize app');
+            }
+        }
+
+        async preloadAdminModules() {
+            try {
+                console.log('📦 Preloading admin modules...');
+
+                // Завантажуємо основний адмін модуль
+                await this.loadScript('js/modules/admin.js');
+
+                // Завантажуємо модуль форм
+                await this.loadScript('js/modules/admin-forms.js');
+
+                console.log('✅ Admin modules loaded');
+            } catch (error) {
+                console.error('⚠️ Failed to preload admin modules:', error);
+                // Не критична помилка - модулі завантажаться при потребі
             }
         }
 
@@ -220,25 +243,35 @@
 
         // --- ОСНОВНІ СТОРІНКИ ---
         async getHomePage() {
-            return `<div class="p-4"><h2>${this.t('app.name')}</h2><p>Вітаємо в RevitBot Store!</p></div>`;
+            // Завантажуємо модуль підписки
+            if (!window.SubscriptionModule) {
+                await this.loadScript('js/modules/subscription.js');
+            }
+
+            const subscriptionBlock = await window.SubscriptionModule.renderSubscriptionBlock(this);
+
+            return `
+                <div class="home-page p-3">
+                    <h2>${this.t('app.name')}</h2>
+
+                    <!-- Блок підписки -->
+                    ${subscriptionBlock}
+
+                    <!-- Тут буде блок щоденних бонусів -->
+                    <div id="daily-bonus-block"></div>
+
+                    <p>Вітаємо в RevitBot Store!</p>
+                </div>
+            `;
         }
 
         async getCatalogPage() {
-            try {
-                const archives = await this.api.get('/api/archives/');
-                this.productsCache = archives;
-                if (!archives || archives.length === 0) return `<div class="p-3"><h3>Каталог порожній</h3></div>`;
-
-                const productCards = archives.map(archive => this.getProductCard(archive)).join('');
-                return `<div class="catalog-page p-3">
-                            <h2 style="margin-bottom: 20px;">Каталог</h2>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;">
-                                ${productCards}
-                            </div>
-                        </div>`;
-            } catch (error) {
-                return this.showError(`Не вдалося завантажити каталог: ${error.message}`);
+            // Завантажуємо модуль каталогу, якщо ще не завантажений
+            if (!window.CatalogModule) {
+                await this.loadScript('js/modules/catalog.js');
             }
+
+            return await window.CatalogModule.getPage(this);
         }
 
         getCartPage() {
@@ -340,12 +373,29 @@
                 return `<div class="p-3"><h3>Доступ заборонено</h3><p>Тільки для адміністраторів</p></div>`;
             }
 
-            // Завантажуємо адмін модуль
+            // Завантажуємо адмін модуль, якщо ще не завантажений
             if (!window.AdminModule) {
-                await this.loadScript('/js/modules/admin.js');
+                try {
+                    // ВИПРАВЛЕННЯ: правильний шлях до файлу
+                    await this.loadScript('js/modules/admin.js');
+
+                    // Чекаємо поки модуль точно завантажиться
+                    if (!window.AdminModule) {
+                        throw new Error('Admin module failed to load');
+                    }
+                } catch (error) {
+                    console.error('Failed to load admin module:', error);
+                    return `<div class="p-3"><h3>Помилка</h3><p>Не вдалося завантажити адмін панель</p></div>`;
+                }
             }
 
-            return window.AdminModule.getDashboard(this);
+            // Тепер безпечно використовуємо модуль
+            try {
+                return await window.AdminModule.getDashboard(this);
+            } catch (error) {
+                console.error('Admin dashboard error:', error);
+                return `<div class="p-3"><h3>Помилка</h3><p>Помилка завантаження панелі: ${error.message}</p></div>`;
+            }
         }
 
         // --- УТИЛІТАРНІ МЕТОДИ ---

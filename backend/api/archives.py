@@ -1,8 +1,8 @@
 # backend/api/archives.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import List, Dict, Any
+from sqlalchemy import select, or_, and_
+from typing import List, Dict, Any, Optional
 
 from database import get_session
 from models.archive import Archive
@@ -15,8 +15,8 @@ router = APIRouter()
 class ArchiveOut(BaseModel):
     id: int
     code: str
-    title: Dict[str, str]  # Змінено з Json на Dict[str, str]
-    description: Dict[str, str]  # Змінено з Json на Dict[str, str]
+    title: Dict[str, str]
+    description: Dict[str, str]
     price: float
     discount_percent: int
     archive_type: str
@@ -27,14 +27,61 @@ class ArchiveOut(BaseModel):
 
 
 @router.get("/", response_model=List[ArchiveOut])
-async def get_archives_list(session: AsyncSession = Depends(get_session)):
+async def get_archives_list(
+        # Параметри пошуку та фільтрації
+        search: Optional[str] = Query(None, description="Пошуковий запит"),
+        archive_type: Optional[str] = Query(None, description="Тип архіву: premium або free"),
+        min_price: Optional[float] = Query(None, description="Мінімальна ціна"),
+        max_price: Optional[float] = Query(None, description="Максимальна ціна"),
+        sort_by: Optional[str] = Query("id", description="Поле для сортування: price, title, created_at"),
+        sort_order: Optional[str] = Query("asc", description="Напрямок сортування: asc або desc"),
+        session: AsyncSession = Depends(get_session)
+):
     """
-    Повертає список всіх архівів з БАЗИ ДАНИХ.
+    Повертає список архівів з можливістю пошуку та фільтрації.
     """
-    result = await session.execute(select(Archive))
+    query = select(Archive)
+
+    # Пошук по назві та коду
+    if search:
+        search_filter = or_(
+            Archive.code.ilike(f"%{search}%"),
+            Archive.title["ua"].as_string().ilike(f"%{search}%"),
+            Archive.title["en"].as_string().ilike(f"%{search}%"),
+            Archive.description["ua"].as_string().ilike(f"%{search}%"),
+            Archive.description["en"].as_string().ilike(f"%{search}%")
+        )
+        query = query.where(search_filter)
+
+    # Фільтр за типом
+    if archive_type:
+        query = query.where(Archive.archive_type == archive_type)
+
+    # Фільтр за ціною
+    if min_price is not None:
+        query = query.where(Archive.price >= min_price)
+    if max_price is not None:
+        query = query.where(Archive.price <= max_price)
+
+    # Сортування
+    if sort_by == "price":
+        order_column = Archive.price
+    elif sort_by == "title":
+        order_column = Archive.title["ua"].as_string()
+    elif sort_by == "created_at":
+        order_column = Archive.created_at
+    else:
+        order_column = Archive.id
+
+    if sort_order == "desc":
+        query = query.order_by(order_column.desc())
+    else:
+        query = query.order_by(order_column.asc())
+
+    result = await session.execute(query)
     archives = result.scalars().all()
 
-    # Для кожного архіву переконуємося, що поля title і description правильно серіалізовані
+    # Форматуємо відповідь
     response_data = []
     for archive in archives:
         response_data.append({

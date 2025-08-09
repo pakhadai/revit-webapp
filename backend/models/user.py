@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, Text
 from sqlalchemy.sql import func
 from database import Base
+import uuid
 
 
 class User(Base):
@@ -23,6 +24,7 @@ class User(Base):
     # Subscription
     subscription_start = Column(DateTime, nullable=True)
     subscription_until = Column(DateTime, nullable=True)
+    has_active_subscription = Column(Boolean, default=False)  # НОВЕ
 
     # Bonuses and referrals
     bonuses = Column(Integer, default=0)
@@ -30,9 +32,29 @@ class User(Base):
     referred_by = Column(Integer, nullable=True)
     invited_count = Column(Integer, default=0)
 
+    # НОВІ поля для бонусної системи
+    total_bonuses_earned = Column(Integer, default=0)  # Всього зароблено бонусів
+    total_bonuses_spent = Column(Integer, default=0)  # Всього витрачено бонусів
+    referral_earnings = Column(Integer, default=0)  # Заробіток з рефералів
+
+    # VIP система
+    vip_level = Column(String(20), default='bronze')  # bronze, silver, gold, diamond
+    total_purchases_amount = Column(Float, default=0)  # Загальна сума покупок
+
     # Timestamps
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    last_active_at = Column(DateTime, nullable=True)  # НОВЕ
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Генеруємо унікальний реферальний код при створенні
+        if not self.referral_code:
+            self.referral_code = self.generate_referral_code()
+
+    def generate_referral_code(self):
+        """Генерує унікальний реферальний код"""
+        return f"REF{self.user_id}{uuid.uuid4().hex[:6].upper()}"
 
     def __repr__(self):
         return f"<User {self.username or self.user_id}>"

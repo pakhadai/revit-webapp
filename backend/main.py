@@ -12,8 +12,8 @@ from models.archive import Archive
 from data.mock_data import mock_archives_list
 from sqlalchemy import select, func
 
-# Імпорти для API (ДОДАНО ADMIN)
-from api import auth, archives, orders, admin
+# Імпорти для API
+from api import auth, archives, orders, admin, subscriptions
 from config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -66,7 +66,8 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(archives.router, prefix="/api/archives", tags=["archives"])
 app.include_router(orders.router, prefix="/api/orders", tags=["orders"])
-app.include_router(admin.router, prefix="/api/admin", tags=["admin"])  # НОВИЙ РОУТЕР
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(subscriptions.router, prefix="/api/subscriptions", tags=["subscriptions"])
 
 # Тестовий ендпоінт
 @app.get("/")

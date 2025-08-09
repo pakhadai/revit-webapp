@@ -1,0 +1,71 @@
+{
+  "app": {
+    "name": "RevitBot Store",
+    "loading": "Loading...",
+    "error": "Error"
+  },
+  "navigation": {
+    "home": "Home",
+    "catalog": "Catalog",
+    "cart": "Cart",
+    "profile": "Profile",
+    "admin": "Admin"
+  },
+  "buttons": {
+    "addToCart": "Add to Cart",
+    "buy": "Buy",
+    "checkout": "Checkout",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "inCart": "In Cart",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "loadMore": "Load More",
+    "apply": "Apply",
+    "reset": "Reset"
+  },
+  "catalog": {
+    "empty": "Catalog is empty",
+    "loading": "Loading products...",
+    "foundProducts": "Products found",
+    "notFound": "No products found",
+    "tryChangeSearch": "Try changing search parameters"
+  },
+  "search": {
+    "placeholder": "Search products..."
+  },
+  "filter": {
+    "allTypes": "All types",
+    "premium": "Premium",
+    "free": "Free",
+    "minPrice": "Min price ($)",
+    "maxPrice": "Max price ($)",
+    "activeFilters": "Active filters",
+    "search": "Search",
+    "type": "Type",
+    "from": "From",
+    "to": "To"
+  },
+  "sort": {
+    "default": "Default",
+    "priceAsc": "Price: Low to High",
+    "priceDesc": "Price: High to Low",
+    "title": "By Title",
+    "newest": "Newest"
+  },
+  "errors": {
+    "init_failed": "Failed to initialize app",
+    "network": "Network error",
+    "auth_failed": "Authentication failed",
+    "not_found": "Not found",
+    "server_error": "Server error",
+    "loadCatalog": "Failed to load catalog",
+    "filterError": "Filter error"
+  }
+}
