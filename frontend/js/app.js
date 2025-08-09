@@ -243,12 +243,16 @@
 
         // --- ОСНОВНІ СТОРІНКИ ---
         async getHomePage() {
-            // Завантажуємо модуль підписки
+            // Завантажуємо модулі
             if (!window.SubscriptionModule) {
                 await this.loadScript('js/modules/subscription.js');
             }
+            if (!window.DailyBonusModule) {
+                await this.loadScript('js/modules/daily-bonus.js');
+            }
 
             const subscriptionBlock = await window.SubscriptionModule.renderSubscriptionBlock(this);
+            const dailyBonusBlock = await window.DailyBonusModule.renderDailyBonusBlock(this);
 
             return `
                 <div class="home-page p-3">
@@ -257,8 +261,10 @@
                     <!-- Блок підписки -->
                     ${subscriptionBlock}
 
-                    <!-- Тут буде блок щоденних бонусів -->
-                    <div id="daily-bonus-block"></div>
+                    <!-- Блок щоденних бонусів -->
+                    <div id="daily-bonus-block">
+                        ${dailyBonusBlock}
+                    </div>
 
                     <p>Вітаємо в RevitBot Store!</p>
                 </div>

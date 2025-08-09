@@ -13,7 +13,7 @@ from data.mock_data import mock_archives_list
 from sqlalchemy import select, func
 
 # Імпорти для API
-from api import auth, archives, orders, admin, subscriptions
+from api import auth, archives, orders, admin, subscriptions, bonuses
 from config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -68,6 +68,7 @@ app.include_router(archives.router, prefix="/api/archives", tags=["archives"])
 app.include_router(orders.router, prefix="/api/orders", tags=["orders"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(subscriptions.router, prefix="/api/subscriptions", tags=["subscriptions"])
+app.include_router(bonuses.router, prefix="/api/bonuses", tags=["bonuses"])
 
 # Тестовий ендпоінт
 @app.get("/")

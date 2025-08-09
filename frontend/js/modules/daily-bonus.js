@@ -209,4 +209,244 @@ window.DailyBonusModule = {
         // Відправляємо результат на сервер
         try {
             const response = await this.app.api.post('/api/bonuses/daily/claim', {
-                slot_result
+                slot_result: result
+           });
+
+           // Звук результату
+           if (response.jackpot) {
+               this.playSound('jackpot');
+               this.showJackpotAnimation();
+           } else {
+               this.playSound('win');
+           }
+
+           // Показуємо результат
+           setTimeout(() => {
+               this.showResult(response);
+           }, 500);
+
+       } catch (error) {
+           this.app.tg.showAlert(`❌ ${error.message}`);
+           this.closeModal();
+       }
+
+       this.isSpinning = false;
+   },
+
+   // Анімація барабану
+   animateReel(index) {
+       const reelContent = document.getElementById(`reel-content-${index}`);
+       let position = 0;
+       const animationDuration = 1500 + (index * 200); // Різна тривалість для кожного барабану
+       const startTime = Date.now();
+
+       const animate = () => {
+           const elapsed = Date.now() - startTime;
+           if (elapsed < animationDuration) {
+               position += 20;
+               reelContent.style.transform = `translateY(${position}px)`;
+
+               // Змінюємо емодзі під час обертання
+               if (position % 80 === 0) {
+                   const randomEmoji = this.slotEmojis[Math.floor(Math.random() * this.slotEmojis.length)];
+                   reelContent.innerHTML = randomEmoji;
+               }
+
+               requestAnimationFrame(animate);
+           }
+       };
+
+       animate();
+   },
+
+   // Генерація результату слоту
+   generateSlotResult() {
+       const result = [];
+
+       // Перевіряємо чи буде джекпот (0.5% шанс)
+       const isJackpot = Math.random() < 0.005;
+
+       if (isJackpot) {
+           // Вибираємо випадковий емодзі для джекпоту
+           const jackpotEmoji = this.slotEmojis[Math.floor(Math.random() * this.slotEmojis.length)];
+           result.push(jackpotEmoji, jackpotEmoji, jackpotEmoji);
+       } else {
+           // Звичайний результат - всі різні або 2 однакових
+           for (let i = 0; i < 3; i++) {
+               result.push(this.slotEmojis[Math.floor(Math.random() * this.slotEmojis.length)]);
+           }
+       }
+
+       return result;
+   },
+
+   // Показати результат
+   showResult(response) {
+       const t = (key) => this.app.t(key);
+
+       const resultHtml = `
+           <div id="result-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10000;">
+               <div style="background: white; border-radius: 20px; padding: 30px; text-align: center; max-width: 350px;">
+                   ${response.jackpot ? `
+                       <div style="font-size: 60px; margin-bottom: 20px;">🎉</div>
+                       <h2 style="margin: 0 0 20px; color: #f5576c; font-size: 28px;">JACKPOT!</h2>
+                   ` : `
+                       <div style="font-size: 50px; margin-bottom: 20px;">✨</div>
+                       <h3 style="margin: 0 0 20px; color: #667eea;">${t('dailyBonus.congratulations')}</h3>
+                   `}
+
+                   <div style="margin-bottom: 20px;">
+                       <div style="font-size: 18px; margin-bottom: 10px;">
+                           ${t('dailyBonus.youWon')}:
+                       </div>
+                       <div style="font-size: 32px; font-weight: bold; color: #f5576c;">
+                           +${response.total_reward} ${t('bonuses')}
+                       </div>
+                       ${response.jackpot ? `
+                           <div style="font-size: 14px; color: #666; margin-top: 10px;">
+                               ${t('dailyBonus.base')}: ${response.base_reward} + ${t('dailyBonus.jackpotBonus')}: ${response.jackpot_bonus}
+                           </div>
+                       ` : ''}
+                   </div>
+
+                   <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+                       <div style="font-size: 14px; color: #666; margin-bottom: 5px;">
+                           ${t('dailyBonus.newBalance')}:
+                       </div>
+                       <div style="font-size: 24px; font-weight: bold; color: #667eea;">
+                           💎 ${response.new_balance}
+                       </div>
+                   </div>
+
+                   <div style="background: #fff3cd; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+                       <div style="font-size: 14px; color: #856404;">
+                           🔥 ${t('dailyBonus.streakDay')}: <strong>${response.streak_day}</strong>
+                       </div>
+                   </div>
+
+                   <button
+                       onclick="DailyBonusModule.closeAllModals()"
+                       style="width: 100%; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer;">
+                       ${t('buttons.confirm')}
+                   </button>
+               </div>
+           </div>
+       `;
+
+       document.body.insertAdjacentHTML('beforeend', resultHtml);
+   },
+
+   // Анімація джекпоту
+   showJackpotAnimation() {
+       const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#f0932b', '#eb4d4b', '#6ab04c'];
+
+       for (let i = 0; i < 20; i++) {
+           setTimeout(() => {
+               const confetti = document.createElement('div');
+               confetti.style.cssText = `
+                   position: fixed;
+                   top: ${Math.random() * 100}%;
+                   left: ${Math.random() * 100}%;
+                   width: 10px;
+                   height: 10px;
+                   background: ${colors[Math.floor(Math.random() * colors.length)]};
+                   border-radius: 50%;
+                   z-index: 10001;
+                   animation: fall 3s ease-out forwards;
+               `;
+               document.body.appendChild(confetti);
+
+               setTimeout(() => confetti.remove(), 3000);
+           }, i * 50);
+       }
+
+       // CSS анімація для конфеті
+       if (!document.getElementById('confetti-style')) {
+           const style = document.createElement('style');
+           style.id = 'confetti-style';
+           style.innerHTML = `
+               @keyframes fall {
+                   to {
+                       transform: translateY(100vh) rotate(360deg);
+                       opacity: 0;
+                   }
+               }
+           `;
+           document.head.appendChild(style);
+       }
+   },
+
+   // Відновити стрік
+   async restoreStreak() {
+       const t = (key) => this.app.t(key);
+
+       if (confirm(`${t('dailyBonus.confirmRestore')} ${this.status.restore_cost} ${t('bonuses')}?`)) {
+           try {
+               const response = await this.app.api.post('/api/bonuses/daily/restore-streak');
+
+               if (response.success) {
+                   this.app.tg.showAlert(`✅ ${t('dailyBonus.streakRestored')}`);
+
+                   // Оновлюємо баланс
+                   this.app.user.bonuses = response.new_balance;
+
+                   // Перезавантажуємо блок
+                   await this.loadStatus();
+                   const block = await this.renderDailyBonusBlock(this.app);
+                   document.getElementById('daily-bonus-block').innerHTML = block;
+               }
+           } catch (error) {
+               this.app.tg.showAlert(`❌ ${error.message}`);
+           }
+       }
+   },
+
+   // Закрити модальне вікно
+   closeModal() {
+       const modal = document.getElementById('slot-modal');
+       if (modal) modal.remove();
+   },
+
+   // Закрити всі модальні вікна
+   closeAllModals() {
+       this.closeModal();
+       const overlay = document.getElementById('result-overlay');
+       if (overlay) overlay.remove();
+
+       // Оновлюємо головну сторінку
+       this.app.loadPage('home');
+   },
+
+   // Програти звук
+   playSound(type) {
+       try {
+           // Якщо є API Telegram для звуків
+           if (this.app.tg?.HapticFeedback) {
+               switch(type) {
+                   case 'click':
+                       this.app.tg.HapticFeedback.impactOccurred('light');
+                       break;
+                   case 'spin':
+                       this.app.tg.HapticFeedback.impactOccurred('medium');
+                       break;
+                   case 'win':
+                       this.app.tg.HapticFeedback.notificationOccurred('success');
+                       break;
+                   case 'jackpot':
+                       this.app.tg.HapticFeedback.notificationOccurred('success');
+                       this.app.tg.HapticFeedback.impactOccurred('heavy');
+                       break;
+               }
+           }
+
+           // Програвання звуку через Audio API (якщо підтримується)
+           if (this.sounds[type] && typeof Audio !== 'undefined') {
+               const audio = new Audio(this.sounds[type]);
+               audio.volume = 0.5;
+               audio.play().catch(e => console.log('Sound play failed:', e));
+           }
+       } catch (error) {
+           console.log('Sound error:', error);
+       }
+   }
+};
