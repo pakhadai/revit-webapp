@@ -78,6 +78,8 @@
             if (this.isAvailable) {
                 this.tg.ready();
                 this.tg.expand();
+                if (this.tg.enableClosingConfirmation) {
+                    this.tg.enableClosingConfirmation();
             }
         }
 
@@ -118,6 +120,7 @@
             this.currentLang = 'ua';
             this.productsCache = [];
             this.cart = this.storage.get('cart', []);
+            this.isRefreshing = false;
         }
 
         async init() {
@@ -125,6 +128,7 @@
             try {
                 this.tg.init();
                 this.applyTheme();
+                this.setupPullToRefresh();
                 await this.loadTranslations();
                 await this.authenticate();
 
@@ -239,6 +243,29 @@
                 html = this.showError(`Failed to load page: ${page}. ${error.message}`);
             }
             content.innerHTML = html;
+        }
+
+        setupPullToRefresh() {
+            // Ця функція вмикає відслідковування жесту "потягнути для оновлення"
+            this.tg.onEvent('viewportChanged', async (event) => {
+                if (!event.isStateStable && !this.isRefreshing && window.scrollY === 0) {
+                    this.isRefreshing = true;
+                    if (this.tg.isAvailable && this.tg.HapticFeedback) {
+                        this.tg.HapticFeedback.impactOccurred('light');
+                    }
+                    await this.refreshPage();
+                    setTimeout(() => { this.isRefreshing = false; }, 500);
+                }
+            });
+        }
+
+        async refreshPage() {
+            // Ця функція перезавантажує поточну сторінку
+            console.log('🔄 Reloading page:', this.currentPage);
+            await this.loadPage(this.currentPage);
+             if (this.tg.isAvailable && this.tg.HapticFeedback) {
+                this.tg.HapticFeedback.notificationOccurred('success');
+            }
         }
 
         // --- ОСНОВНІ СТОРІНКИ ---
@@ -546,6 +573,11 @@
             Object.entries(theme).forEach(([key, value]) =>
                 document.documentElement.style.setProperty(`--tg-theme-${key.replace(/_/g, '-')}`, value)
             );
+
+            // Встановлюємо колір фону для pull-to-refresh з перевіркою наявності функції
+            if (this.tg.isAvailable && this.tg.setBackgroundColor) {
+                 this.tg.setBackgroundColor(theme.secondary_bg_color || '#f1f1f1');
+            }
         }
 
         async loadTranslations(lang) {

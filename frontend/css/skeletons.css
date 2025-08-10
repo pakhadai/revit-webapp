@@ -1,0 +1,72 @@
+/* frontend/css/skeletons.css */
+
+.skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+.skeleton-card {
+    background-color: var(--tg-theme-secondary-bg-color);
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.skeleton-image {
+    height: 120px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background-color: var(--tg-theme-bg-color);
+}
+
+.skeleton-text {
+    height: 14px;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    background-color: var(--tg-theme-bg-color);
+}
+
+.skeleton-text-short {
+    width: 60%;
+}
+
+.skeleton-price {
+    height: 20px;
+    width: 40%;
+    border-radius: 4px;
+    background-color: var(--tg-theme-bg-color);
+}
+
+.skeleton-button {
+    height: 30px;
+    width: 50%;
+    border-radius: 6px;
+    background-color: var(--tg-theme-bg-color);
+}
+
+.skeleton-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+}
+
+/* Анімація мерехтіння */
+.shimmer {
+    animation: shimmer-animation 1.5s infinite linear;
+    background: linear-gradient(90deg,
+        var(--tg-theme-secondary-bg-color) 0%,
+        var(--tg-theme-bg-color) 20%,
+        var(--tg-theme-secondary-bg-color) 40%,
+        var(--tg-theme-secondary-bg-color) 100%);
+    background-size: 200% 100%;
+}
+
+@keyframes shimmer-animation {
+    0% {
+        background-position: 100% 0;
+    }
+    100% {
+        background-position: -100% 0;
+    }
+}

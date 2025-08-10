@@ -264,7 +264,7 @@ window.SubscriptionModule = {
             plan: plan,
             method: 'cryptomus'
         }, app);
-    }
+    },
 
    // Показати архіви користувача
    async showArchives() {
