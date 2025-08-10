@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # Payment
     CRYPTOMUS_MERCHANT_UUID: Optional[str] = None
     CRYPTOMUS_API_KEY: Optional[str] = None
+    CRYPTOMUS_WEBHOOK_SECRET: Optional[str] = None  # Секрет для вебхуків
+
+    APP_URL: str = "https://your-domain.com"  # Змініть на вашу адресу
+
 
     # Development
     DEV_MODE: bool = True
@@ -66,6 +70,10 @@ class Settings(BaseSettings):
 
     # Timezone for daily reset
     DAILY_RESET_TIMEZONE: str = "Europe/Kiev" # <-- Тепер це частина класу!
+
+    # Payment settings
+    PAYMENT_CURRENCIES: list = ["USD", "EUR", "USDT", "BTC", "ETH"]
+    PAYMENT_TIMEOUT_MINUTES: int = 60
 
     class Config:
         env_file = ".env"

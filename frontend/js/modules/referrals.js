@@ -45,7 +45,6 @@ window.ReferralsModule = {
                     </button>
                 </div>
 
-                <!-- Код та посилання -->
                 <div style="background: rgba(255,255,255,0.1); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
                     <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">
                         ${t('referrals.yourCode')}:
@@ -60,7 +59,6 @@ window.ReferralsModule = {
                         </button>
                     </div>
 
-                    <!-- Кнопки шерингу -->
                     <div style="display: flex; gap: 10px;">
                         <button onclick="ReferralsModule.shareToTelegram()"
                                 style="flex: 1; padding: 12px; background: white; color: var(--primary-color); border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
@@ -73,7 +71,6 @@ window.ReferralsModule = {
                     </div>
                 </div>
 
-                <!-- Статистика -->
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
                     <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; text-align: center;">
                         <div style="font-size: 24px; font-weight: bold;">
@@ -109,7 +106,6 @@ window.ReferralsModule = {
                     </div>
                 </div>
 
-                <!-- Інформація -->
                 <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px;">
                     <div style="font-size: 14px; line-height: 1.6;">
                         📌 ${t('referrals.info')}
@@ -142,7 +138,6 @@ window.ReferralsModule = {
                         </button>
                     </div>
 
-                    <!-- Табы -->
                     <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--tg-theme-secondary-bg-color);">
                         <button id="tab-referrals"
                                 onclick="ReferralsModule.switchTab('referrals')"
@@ -156,7 +151,6 @@ window.ReferralsModule = {
                         </button>
                     </div>
 
-                    <!-- Контент табов -->
                     <div id="tab-content">
                         ${this.renderReferralsList(data, app)}
                     </div>
@@ -193,7 +187,6 @@ window.ReferralsModule = {
         }
 
         return `
-            <!-- Статистика -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px;">
                 <div style="background: #e8f5e9; border-radius: 12px; padding: 15px; text-align: center;">
                     <div style="color: #4caf50; font-size: 24px; font-weight: bold;">
@@ -221,7 +214,6 @@ window.ReferralsModule = {
                 </div>
             </div>
 
-            <!-- Список рефералів -->
             <div style="display: flex; flex-direction: column; gap: 15px;">
                 ${data.referrals.map(referral => `
                     <div style="background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 15px;">
@@ -238,4 +230,89 @@ window.ReferralsModule = {
                                     </div>
                                 </div>
                             </div>
-                            <div style="text-align:
+                            <div style="text-align: right;">
+                                <div style="font-weight: bold; color: ${referral.status === 'active' ? '#4caf50' : '#ff9800'};">
+                                    💎 ${referral.your_earnings}
+                                </div>
+                                <div style="font-size: 12px; color: ${referral.status === 'active' ? '#4caf50' : '#ff9800'};">
+                                    ${t('referrals.status.' + referral.status)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    },
+
+    // Рендер лідерборду
+    renderLeaderboard(data, app) {
+        const t = (key) => app.t(key);
+
+        return `
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                ${data.leaderboard.map(leader => `
+                    <div style="background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 15px; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div style="font-size: 20px; font-weight: bold; width: 30px; text-align: center;">${leader.position}</div>
+                            <img src="${leader.user.avatar}" style="width: 40px; height: 40px; border-radius: 50%;">
+                            <div>
+                                <div style="font-weight: 600;">${leader.user.full_name}</div>
+                                <div style="font-size: 12px; color: var(--tg-theme-hint-color);">${leader.badge.emoji} ${leader.badge.name}</div>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: bold; color: var(--primary-color);">${leader.referrals_count} ${t('referrals.friends')}</div>
+                            <div style="font-size: 12px; color: var(--tg-theme-hint-color);">💎 ${leader.total_earned} ${t('referrals.earned')}</div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    },
+
+    // Перемикання табів
+    switchTab(tabName) {
+        const t = (key) => this.app.t(key);
+        const tabContent = document.getElementById('tab-content');
+        const tabReferrals = document.getElementById('tab-referrals');
+        const tabLeaderboard = document.getElementById('tab-leaderboard');
+
+        if (tabName === 'referrals') {
+            tabContent.innerHTML = this.renderReferralsList(this.myReferrals, this.app);
+            tabReferrals.style.borderBottom = '2px solid var(--primary-color)';
+            tabReferrals.style.color = 'var(--primary-color)';
+            tabLeaderboard.style.borderBottom = 'none';
+            tabLeaderboard.style.color = 'var(--tg-theme-text-color)';
+        } else {
+            tabContent.innerHTML = this.renderLeaderboard(this.leaderboard, this.app);
+            tabLeaderboard.style.borderBottom = '2px solid var(--primary-color)';
+            tabLeaderboard.style.color = 'var(--primary-color)';
+            tabReferrals.style.borderBottom = 'none';
+            tabReferrals.style.color = 'var(--tg-theme-text-color)';
+        }
+    },
+
+    // Копіювання коду
+    copyCode(code) {
+        navigator.clipboard.writeText(code).then(() => {
+            this.app.tg.showAlert('✅ ' + this.app.t('referrals.codeCopied'));
+        });
+    },
+
+    // Копіювання посилання
+    copyLink(link) {
+        navigator.clipboard.writeText(link).then(() => {
+            this.app.tg.showAlert('✅ ' + this.app.t('referrals.linkCopied'));
+        });
+    },
+
+    // Поділитися в Telegram
+    shareToTelegram() {
+        const t = (key) => this.app.t(key);
+        if (this.myCode) {
+            const url = `https://t.me/share/url?url=${encodeURIComponent(this.myCode.referral_link)}&text=${encodeURIComponent(this.myCode.share_text)}`;
+            this.app.tg.openTelegramLink(url);
+        }
+    }
+};

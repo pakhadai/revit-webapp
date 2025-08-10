@@ -249,26 +249,22 @@ window.SubscriptionModule = {
 
    // Покупка за крипту
    async purchaseWithCrypto(plan) {
-       const app = window.app;
+        const app = window.app;
 
-       try {
-           const response = await app.api.post('/api/subscriptions/create', {
-               plan: plan,
-               payment_method: 'cryptomus',
-               auto_renew: false
-           });
+        // Завантажуємо модуль платежів якщо ще не завантажений
+        if (!window.PaymentModule) {
+            await app.loadScript('js/modules/payment.js');
+        }
 
-           if (response.payment_required) {
-               // Перенаправляємо на сторінку оплати
-               window.open(response.payment_url, '_blank');
-               this.closeModal();
+        // Закриваємо модальне вікно підписки
+        this.closeModal();
 
-               app.tg.showAlert(app.t('subscription.redirectToPayment'));
-           }
-       } catch (error) {
-           app.tg.showAlert(`❌ ${app.t('errors.purchaseFailed')}: ${error.message}`);
-       }
-   },
+        // Створюємо платіж
+        await window.PaymentModule.createPayment('subscription', {
+            plan: plan,
+            method: 'cryptomus'
+        }, app);
+    }
 
    // Показати архіви користувача
    async showArchives() {

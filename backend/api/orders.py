@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 # ВИПРАВЛЕНИЙ ІМПОРТ: імпортуємо нову залежність
 from .auth import get_current_user_dependency
+from .vip_processing import update_vip_status_after_purchase
 
 router = APIRouter()
 
@@ -61,6 +62,7 @@ async def create_order(
     # У режимі розробки одразу завершуємо замовлення
     if settings.DEV_MODE:
         new_order.status = "completed"
+        await update_vip_status_after_purchase(current_user.id, new_order, session)
 
     session.add(new_order)
     await session.flush()  # Отримуємо ID замовлення

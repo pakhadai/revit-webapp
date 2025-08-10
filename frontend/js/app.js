@@ -325,43 +325,62 @@
                 return this.showError('User not authenticated. Please restart the app.');
             }
 
-            const { fullName, username, role, bonuses, language } = this.user;
+            if (!window.DownloadsModule) {
+                await this.loadScript('js/modules/downloads.js');
+            }
+
+            // Завантажуємо потрібні модулі
+            if (!window.VipModule) await this.loadScript('js/modules/vip.js');
+            if (!window.ReferralsModule) await this.loadScript('js/modules/referrals.js');
+
+            const { fullName, username, role, bonuses } = this.user;
+
+            const vipBlock = await window.VipModule.renderVipBlock(this);
+            const referralsBlock = await window.ReferralsModule.renderReferralBlock(this);
 
             return `
                 <div class="profile-page p-3">
-                    <h2 style="margin-bottom: 25px;">Профіль</h2>
-                    <div style="display: flex; flex-direction: column; gap: 15px;">
-                        <div class="profile-item">
-                            <span class="profile-item__label">Повне ім'я:</span>
-                            <span class="profile-item__value">${fullName}</span>
-                        </div>
-                        <div class="profile-item">
-                            <span class="profile-item__label">Username:</span>
-                            <span class="profile-item__value">@${username || 'не вказано'}</span>
-                        </div>
-                        <div class="profile-item">
-                            <span class="profile-item__label">Роль:</span>
-                            <span class="profile-item__value">${role}</span>
-                        </div>
-                        <div class="profile-item">
-                            <span class="profile-item__label">Мова:</span>
-                            <span class="profile-item__value">${language}</span>
-                        </div>
-                        <div class="profile-item">
-                            <span class="profile-item__label">Бонуси:</span>
-                            <span class="profile-item__value">${bonuses} ✨</span>
-                        </div>
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 25px; background: var(--tg-theme-secondary-bg-color); padding: 15px; border-radius: 12px;">
+                         <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=667eea&color=fff&size=64"
+                              style="width: 64px; height: 64px; border-radius: 50%;">
+                         <div>
+                            <h2 style="margin: 0 0 5px;">${fullName}</h2>
+                            <p style="margin: 0; color: var(--tg-theme-hint-color);">@${username || 'not_set'}</p>
+                         </div>
                     </div>
+
+                    ${vipBlock}
+
+                    ${referralsBlock}
+
+                    <div class="profile-item">
+                        <span class="profile-item__label">Бонуси:</span>
+                        <span class="profile-item__value">${bonuses} ✨</span>
+                    </div>
+                     <div class="profile-item">
+                        <span class="profile-item__label">Роль:</span>
+                        <span class="profile-item__value">${role}</span>
+                    </div>
+
+                    <div style="margin-top: 30px;">
+                        <button onclick="DownloadsModule.showDownloads(window.app)"
+                                style="width: 100%; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 15px;">
+                            📥 Мої завантаження
+                        </button>
+                    </div>
+
                 </div>
                 <style>
                     .profile-item {
-                        background: var(--tg-theme-secondary-bg-color);
+                        background: var(--tg-theme-bg-color);
                         padding: 12px 15px;
                         border-radius: 8px;
                         display: flex;
                         justify-content: space-between;
                         align-items: center;
                         font-size: 16px;
+                        margin-top: 10px;
+                        border: 1px solid var(--tg-theme-secondary-bg-color);
                     }
                     .profile-item__label {
                         color: var(--tg-theme-hint-color);
