@@ -80,6 +80,13 @@
                 this.tg.expand();
                 if (this.tg.enableClosingConfirmation) {
                     this.tg.enableClosingConfirmation();
+                }
+            }
+        }
+
+        onEvent(eventType, callback) {
+            if (this.isAvailable) {
+                this.tg.onEvent(eventType, callback);
             }
         }
 
@@ -304,7 +311,24 @@
                 await this.loadScript('js/modules/catalog.js');
             }
 
-            return await window.CatalogModule.getPage(this);
+            // Отримуємо HTML каталогу
+            const html = await window.CatalogModule.getPage(this);
+
+            // Повертаємо HTML, а ініціалізацію робимо після рендеру
+            setTimeout(async () => {
+                // Перевіряємо чи функція існує
+                if (window.CatalogModule && window.CatalogModule.initInfiniteScroll) {
+                    await window.CatalogModule.initInfiniteScroll(this);
+                } else {
+                    console.error('CatalogModule.initInfiniteScroll not found, using fallback');
+                    // Використовуємо fallback
+                    if (window.CatalogModule && window.CatalogModule.loadFallback) {
+                        await window.CatalogModule.loadFallback(this);
+                    }
+                }
+            }, 100);
+
+            return html;
         }
 
         getCartPage() {

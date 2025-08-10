@@ -1,4 +1,4 @@
-// Модуль каталогу з підтримкою мультимовності
+// Модуль каталогу з підтримкою мультимовності та Infinite Scroll
 window.CatalogModule = {
     // Отримати сторінку каталогу
     async getPage(app) {
@@ -7,70 +7,82 @@ window.CatalogModule = {
             await app.loadScript('js/modules/search-filter.js');
         }
 
-        const t = (key) => app.t(key);
+        // Завантажуємо модуль Infinite Scroll
+        if (!window.InfiniteScrollModule) {
+            await app.loadScript('js/modules/infinite-scroll.js');
+        }
 
-        // Спочатку показуємо скелетони
-        const searchPanelHtml = window.SearchFilterModule.renderSearchPanel(app);
-        const skeletonHtml = this.renderSkeletonGrid(app);
+        const lang = app.currentLang || 'ua';
 
-        // Запускаємо завантаження даних у фоні
-        this.loadInitialData(app);
-
+        // Повертаємо HTML без початкового завантаження даних
         return `
             <div class="catalog-page p-3">
-                <h2 style="margin-bottom: 20px;">${t('navigation.catalog')}</h2>
+                <h2 style="margin-bottom: 20px;">${app.t('navigation.catalog')}</h2>
 
-                ${searchPanelHtml}
+                <!-- Панель пошуку та фільтрів -->
+                ${window.SearchFilterModule.renderSearchPanel(app)}
 
-                <div id="products-count" style="margin-bottom: 15px; color: var(--tg-theme-hint-color); display: none;">
-                    ${t('catalog.foundProducts')}: <strong id="products-count-value">0</strong>
+                <!-- Кількість знайдених товарів -->
+                <div style="margin-bottom: 15px; color: var(--tg-theme-hint-color);">
+                    <span data-items-count>${app.t('catalog.loading')}</span>
                 </div>
 
-                <div id="products-grid">
-                    ${skeletonHtml}
+                <!-- Сітка товарів -->
+                <div id="products-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; min-height: 300px;">
+                    <!-- Товари будуть завантажені сюди через Infinite Scroll -->
                 </div>
             </div>
         `;
     },
 
-    // Асинхронне завантаження початкових даних
-    async loadInitialData(app) {
+    // ДОДАЄМО цю функцію - ініціалізація infinite scroll
+    async initInfiniteScroll(app) {
+        console.log('Initializing infinite scroll...');
+
+        // Ініціалізуємо Infinite Scroll модуль
+        if (window.InfiniteScrollModule) {
+            window.InfiniteScrollModule.init('#products-grid', {
+                itemsPerPage: 12,
+                threshold: 300
+            });
+        } else {
+            console.error('InfiniteScrollModule not loaded');
+            // Fallback - завантажуємо звичайним способом
+            await this.loadFallback(app);
+        }
+    },
+
+    // Fallback метод якщо infinite scroll не працює
+    async loadFallback(app) {
         try {
             const archives = await app.api.get('/api/archives/');
             app.productsCache = archives;
 
             const gridSection = document.getElementById('products-grid');
-            const countElement = document.getElementById('products-count');
-            const countValueElement = document.getElementById('products-count-value');
-
-            if (!gridSection) return; // Якщо користувач вже пішов зі сторінки
-
-            if (!archives || archives.length === 0) {
-                 gridSection.innerHTML = `
-                    <div style="text-align: center; padding: 50px; grid-column: 1 / -1;">
-                        <h3>${app.t('catalog.empty')}</h3>
-                        <p style="color: var(--tg-theme-hint-color);">${app.t('catalog.tryChangeSearch')}</p>
-                    </div>
-                `;
-            } else {
+            if (gridSection && archives.length > 0) {
                 const productCards = archives.map(archive => this.getProductCard(archive, app)).join('');
                 gridSection.innerHTML = productCards;
-            }
 
-            if (countElement && countValueElement) {
-                countValueElement.innerText = archives.length;
-                countElement.style.display = 'block';
+                // Оновлюємо лічильник
+                const countElement = document.querySelector('[data-items-count]');
+                if (countElement) {
+                    countElement.textContent = `${app.t('catalog.foundProducts')}: ${archives.length}`;
+                }
             }
-
         } catch (error) {
+            console.error('Fallback loading error:', error);
             const gridSection = document.getElementById('products-grid');
-            if(gridSection) {
-                gridSection.innerHTML = app.showError(`${app.t('errors.loadCatalog')}: ${error.message}`);
+            if (gridSection) {
+                gridSection.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 50px;">
+                        <h3>${app.t('catalog.notFound')}</h3>
+                        <p style="color: var(--tg-theme-hint-color);">${error.message}</p>
+                    </div>`;
             }
         }
     },
 
-    // Картка товару з мультимовністю
+    // Картка товару з мультимовністю (без змін)
     getProductCard(archive, app) {
         const { id, title, description, price, discount_percent, archive_type } = archive;
         const lang = app.currentLang || 'ua';
@@ -151,31 +163,32 @@ window.CatalogModule = {
             </div>`;
     },
 
-    renderSkeletonGrid(app) {
-        const skeletonCard = `
-            <div class="skeleton-card">
-                <div class="skeleton-image shimmer"></div>
-                <div class="skeleton-text shimmer"></div>
-                <div class="skeleton-text skeleton-text-short shimmer"></div>
-                <div class="skeleton-footer">
-                    <div class="skeleton-price shimmer"></div>
-                    <div class="skeleton-button shimmer"></div>
-                </div>
-            </div>
-        `;
-        return `<div class="skeleton-grid">${skeletonCard.repeat(6)}</div>`;
-    },
-
     // Завантаження відфільтрованого каталогу
     async loadFiltered(filters, app) {
-        const gridSection = document.getElementById('products-grid');
-        if (!gridSection) return;
+        // Якщо є Infinite Scroll - використовуємо його
+        if (window.InfiniteScrollModule && window.InfiniteScrollModule.state.container) {
+            window.InfiniteScrollModule.setFilters(filters);
+        } else {
+            // Інакше - старий метод
+            await this.loadFilteredFallback(filters, app);
+        }
+    },
 
-        // Показуємо скелетони
-        gridSection.innerHTML = this.renderSkeletonGrid(app);
+    // Fallback для фільтрації
+    async loadFilteredFallback(filters, app) {
+        const catalogSection = document.querySelector('.catalog-page');
+        if (!catalogSection) return;
+
+        const gridSection = document.getElementById('products-grid');
+        if (gridSection) {
+            gridSection.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 50px;">
+                    <div class="loader"></div>
+                    <p style="margin-top: 10px; color: var(--tg-theme-hint-color);">${app.t('catalog.loading')}</p>
+                </div>`;
+        }
 
         try {
-            // Формуємо параметри запиту
             const params = new URLSearchParams();
             if (filters.search) params.append('search', filters.search);
             if (filters.archive_type) params.append('archive_type', filters.archive_type);
@@ -184,37 +197,30 @@ window.CatalogModule = {
             if (filters.sort_by) params.append('sort_by', filters.sort_by);
             if (filters.sort_order) params.append('sort_order', filters.sort_order);
 
-            // Запит з фільтрами
             const archives = await app.api.get(`/api/archives/?${params.toString()}`);
             app.productsCache = archives;
 
-            // Оновлюємо кількість
-            const countElement = document.getElementById('products-count');
-            const countValueElement = document.getElementById('products-count-value');
-            if (countElement && countValueElement) {
-                countValueElement.innerText = archives.length;
-                countElement.style.display = 'block';
+            const countElement = catalogSection.querySelector('[data-items-count]');
+            if (countElement) {
+                countElement.innerHTML = `${app.t('catalog.foundProducts')}: <strong>${archives.length}</strong>`;
             }
 
-            // Оновлюємо товари
-            if (archives.length === 0) {
-                gridSection.innerHTML = `
-                    <div style="grid-column: 1/-1; text-align: center; padding: 50px;">
-                        <h3>${app.t('catalog.notFound')}</h3>
-                        <p style="color: var(--tg-theme-hint-color);">${app.t('catalog.tryChangeSearch')}</p>
-                    </div>
-                `;
-            } else {
-                const productCards = archives.map(archive => this.getProductCard(archive, app)).join('');
-                gridSection.innerHTML = productCards;
+            if (gridSection) {
+                if (archives.length === 0) {
+                    gridSection.innerHTML = `
+                        <div style="grid-column: 1/-1; text-align: center; padding: 50px;">
+                            <h3>${app.t('catalog.notFound')}</h3>
+                            <p style="color: var(--tg-theme-hint-color);">${app.t('catalog.tryChangeSearch')}</p>
+                        </div>
+                    `;
+                } else {
+                    const productCards = archives.map(archive => this.getProductCard(archive, app)).join('');
+                    gridSection.innerHTML = productCards;
+                }
             }
-
         } catch (error) {
             console.error('Filter error:', error);
             app.tg.showAlert(`${app.t('errors.filterError')}: ${error.message}`);
-            if (gridSection) {
-                 gridSection.innerHTML = app.showError(`${app.t('errors.filterError')}: ${error.message}`);
-            }
         }
     }
 };
