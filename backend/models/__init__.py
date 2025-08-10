@@ -10,6 +10,7 @@ from .favorite import Favorite
 from .view_history import ViewHistory
 from .archive_rating import ArchiveRating
 from .notification import Notification
+from .comment import Comment
 
 __all__ = [
     'User',
@@ -27,5 +28,6 @@ __all__ = [
     'Favorite',
     'ViewHistory',
     'ArchiveRating',
+    'Comment',
     'Notification'
 ]
