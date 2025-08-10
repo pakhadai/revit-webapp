@@ -135,9 +135,22 @@
             try {
                 this.tg.init();
                 this.applyTheme();
-                this.setupPullToRefresh();
+
                 await this.loadTranslations();
                 await this.authenticate();
+
+                // Паралельно ініціалізуємо ResponsiveModule і PullToRefresh
+                await Promise.all([
+                    (async () => {
+                        if (!window.ResponsiveModule) {
+                            await this.loadScript('js/modules/responsive.js');
+                        }
+                        window.ResponsiveModule.init();
+                    })(),
+                    (async () => {
+                        this.setupPullToRefresh();
+                    })()
+                ]);
 
                 // Попередньо завантажуємо адмін модулі, якщо користувач - адмін
                 if (this.user?.isAdmin) {
@@ -147,8 +160,10 @@
                 this.setupUI();
                 await this.loadPage('home');
                 this.updateCartBadge();
+
                 document.getElementById('app-loader').style.display = 'none';
                 document.getElementById('app').style.display = 'block';
+
                 console.log('✅ App initialized successfully');
             } catch (error) {
                 console.error('❌ Init error:', error);
