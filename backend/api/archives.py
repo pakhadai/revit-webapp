@@ -1,7 +1,7 @@
-# backend/api/archives.py - ВИПРАВЛЕНА версія
+# backend/api/archives.py - ВИПРАВЛЕНА ВЕРСІЯ З ПРАЦЮЮЧИМ ПОШУКОМ
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, and_, func
+from sqlalchemy import select, or_, func
 from typing import List, Dict, Any, Optional
 from database import get_session
 from models.archive import Archive
@@ -40,14 +40,15 @@ async def get_archives_list(
     """
     query = select(Archive)
 
-    # Пошук по назві та коду
+    # Пошук по назві та коду (ВИПРАВЛЕНО ДЛЯ SQLITE)
     if search:
+        search_term = f"%{search.lower()}%"
         search_filter = or_(
-            Archive.code.ilike(f"%{search}%"),
-            Archive.title["ua"].as_string().ilike(f"%{search}%"),
-            Archive.title["en"].as_string().ilike(f"%{search}%"),
-            Archive.description["ua"].as_string().ilike(f"%{search}%"),
-            Archive.description["en"].as_string().ilike(f"%{search}%")
+            func.lower(Archive.code).like(search_term),
+            func.lower(Archive.title.op('->>')('$.ua')).like(search_term),
+            func.lower(Archive.title.op('->>')('$.en')).like(search_term),
+            func.lower(Archive.description.op('->>')('$.ua')).like(search_term),
+            func.lower(Archive.description.op('->>')('$.en')).like(search_term)
         )
         query = query.where(search_filter)
 
@@ -62,14 +63,13 @@ async def get_archives_list(
         query = query.where(Archive.price <= max_price)
 
     # Сортування
+    order_column = Archive.id  # Default
     if sort_by == "price":
         order_column = Archive.price
     elif sort_by == "title":
-        order_column = Archive.title["ua"].as_string()
+        order_column = Archive.title.op('->>')('$.ua')
     elif sort_by == "created_at":
         order_column = Archive.created_at
-    else:
-        order_column = Archive.id
 
     if sort_order == "desc":
         query = query.order_by(order_column.desc())
@@ -78,22 +78,7 @@ async def get_archives_list(
 
     result = await session.execute(query)
     archives = result.scalars().all()
-
-    # Форматуємо відповідь
-    response_data = []
-    for archive in archives:
-        response_data.append({
-            "id": archive.id,
-            "code": archive.code,
-            "title": archive.title if isinstance(archive.title, dict) else {},
-            "description": archive.description if isinstance(archive.description, dict) else {},
-            "price": archive.price,
-            "discount_percent": archive.discount_percent,
-            "archive_type": archive.archive_type,
-            "image_path": archive.image_path or "/images/placeholder.png"
-        })
-
-    return response_data
+    return archives
 
 
 @router.get("/{archive_id}", response_model=ArchiveOut)
@@ -105,20 +90,9 @@ async def get_archive_details(archive_id: int, session: AsyncSession = Depends(g
     archive = result.scalar_one_or_none()
     if not archive:
         raise HTTPException(status_code=404, detail="Archive not found")
-
-    return {
-        "id": archive.id,
-        "code": archive.code,
-        "title": archive.title if isinstance(archive.title, dict) else {},
-        "description": archive.description if isinstance(archive.description, dict) else {},
-        "price": archive.price,
-        "discount_percent": archive.discount_percent,
-        "archive_type": archive.archive_type,
-        "image_path": archive.image_path or "/images/placeholder.png"
-    }
+    return archive
 
 
-# ДОДАЄМО НОВИЙ ЕНДПОІНТ для пагінації (опціонально)
 @router.get("/paginated/list")
 async def get_archives_paginated(
         page: int = Query(1, ge=1, description="Номер сторінки"),
@@ -133,67 +107,61 @@ async def get_archives_paginated(
 ):
     """Повертає пагінований список архівів"""
 
-    query = select(Archive)
+    base_query = select(Archive)
+    count_query = select(func.count(Archive.id))
 
-    # Застосовуємо фільтри
+    # Застосовуємо фільтри (ВИПРАВЛЕНО ДЛЯ SQLITE)
     if search:
+        search_term = f"%{search.lower()}%"
         search_filter = or_(
-            Archive.code.ilike(f"%{search}%"),
-            Archive.title["ua"].as_string().ilike(f"%{search}%"),
-            Archive.title["en"].as_string().ilike(f"%{search}%")
+            func.lower(Archive.code).like(search_term),
+            func.lower(Archive.title.op('->>')('$.ua')).like(search_term),
+            func.lower(Archive.title.op('->>')('$.en')).like(search_term),
+            func.lower(Archive.description.op('->>')('$.ua')).like(search_term),
+            func.lower(Archive.description.op('->>')('$.en')).like(search_term)
         )
-        query = query.where(search_filter)
+        base_query = base_query.where(search_filter)
+        count_query = count_query.where(search_filter)
 
     if archive_type:
-        query = query.where(Archive.archive_type == archive_type)
+        base_query = base_query.where(Archive.archive_type == archive_type)
+        count_query = count_query.where(Archive.archive_type == archive_type)
 
     if min_price is not None:
-        query = query.where(Archive.price >= min_price)
+        base_query = base_query.where(Archive.price >= min_price)
+        count_query = count_query.where(Archive.price >= min_price)
     if max_price is not None:
-        query = query.where(Archive.price <= max_price)
+        base_query = base_query.where(Archive.price <= max_price)
+        count_query = count_query.where(Archive.price <= max_price)
+
+    # Рахуємо загальну кількість ВІДФІЛЬТРОВАНИХ результатів
+    total_result = await session.execute(count_query)
+    total_count = total_result.scalar_one()
 
     # Сортування
+    order_column = Archive.id  # Default
     if sort_by == "price":
         order_column = Archive.price
     elif sort_by == "title":
-        order_column = Archive.title["ua"].as_string()
+        # Сортуємо по українській назві
+        order_column = Archive.title.op('->>')('$.ua')
     elif sort_by == "created_at":
         order_column = Archive.created_at
-    else:
-        order_column = Archive.id
 
     if sort_order == "desc":
-        query = query.order_by(order_column.desc())
+        base_query = base_query.order_by(order_column.desc())
     else:
-        query = query.order_by(order_column.asc())
-
-    # Рахуємо загальну кількість
-    count_result = await session.execute(select(func.count(Archive.id)))
-    total_count = count_result.scalar_one()
+        base_query = base_query.order_by(order_column.asc())
 
     # Застосовуємо пагінацію
     offset = (page - 1) * limit
-    query = query.offset(offset).limit(limit)
+    final_query = base_query.offset(offset).limit(limit)
 
-    result = await session.execute(query)
+    result = await session.execute(final_query)
     archives = result.scalars().all()
 
-    # Форматуємо відповідь
-    items = []
-    for archive in archives:
-        items.append({
-            "id": archive.id,
-            "code": archive.code,
-            "title": archive.title if isinstance(archive.title, dict) else {},
-            "description": archive.description if isinstance(archive.description, dict) else {},
-            "price": archive.price,
-            "discount_percent": archive.discount_percent,
-            "archive_type": archive.archive_type,
-            "image_path": archive.image_path or "/images/placeholder.png"
-        })
-
     return {
-        "items": items,
+        "items": archives,
         "total": total_count,
         "page": page,
         "limit": limit,

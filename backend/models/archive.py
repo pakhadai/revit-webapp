@@ -1,3 +1,5 @@
+# backend/models/archive.py
+
 from sqlalchemy import Column, Integer, String, Float, DateTime, Text, JSON, ForeignKey
 from sqlalchemy.sql import func
 from database import Base
@@ -10,7 +12,7 @@ class Archive(Base):
     code = Column(String(100), unique=True, nullable=False, index=True)
 
     # Content
-    title = Column(JSON, nullable=False)  # {"ua": "...", "en": "...", "de": "..."}
+    title = Column(JSON, nullable=False)
     description = Column(JSON, nullable=False)
 
     # Files
@@ -22,7 +24,7 @@ class Archive(Base):
     discount_percent = Column(Integer, default=0)
 
     # Type
-    archive_type = Column(String(50), default='premium')  # premium, free
+    archive_type = Column(String(50), default='premium')
 
     # Metadata
     created_at = Column(DateTime, server_default=func.now())
@@ -32,6 +34,10 @@ class Archive(Base):
     # Statistics
     purchase_count = Column(Integer, default=0)
     view_count = Column(Integer, default=0)
+
+    # НОВІ ПОЛЯ ДЛЯ РЕЙТИНГУ
+    average_rating = Column(Float, default=0.0)
+    ratings_count = Column(Integer, default=0)
 
     def __repr__(self):
         return f"<Archive {self.code}>"

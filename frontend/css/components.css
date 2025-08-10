@@ -95,3 +95,35 @@
 .toast--info {
     border-left: 4px solid var(--primary-color);
 }
+
+/* Styles for Ratings */
+.stars-static {
+    font-size: 16px;
+    color: #f39c12;
+    letter-spacing: 2px;
+}
+.ratings-count {
+    font-size: 12px;
+    color: var(--tg-theme-hint-color);
+    margin-left: 5px;
+}
+
+.stars-interactive-wrapper {
+    display: inline-block;
+}
+.star-interactive {
+    font-size: 32px;
+    color: #bdc3c7;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.star-interactive:hover,
+.star-interactive.checked {
+    color: #f1c40f;
+}
+.stars-interactive-wrapper:hover .star-interactive {
+    color: #f1c40f;
+}
+.star-interactive:hover ~ .star-interactive {
+    color: #bdc3c7;
+}

@@ -1,12 +1,17 @@
-// Модуль Infinite Scroll (СПРОЩЕНА І БЕЗПЕЧНА ВЕРСІЯ)
+// Модуль Infinite Scroll (З ПІДТРИМКОЮ КЕШУВАННЯ)
 window.InfiniteScrollModule = {
+    config: {
+        threshold: 300,
+        itemsPerPage: 12
+    },
     state: {
         isLoading: false,
         hasMore: true,
         currentPage: 1,
         filters: {},
         container: null,
-        loader: null
+        loader: null,
+        loadedItems: []
     },
 
     init(containerSelector) {
@@ -18,7 +23,7 @@ window.InfiniteScrollModule = {
     },
 
     createLoader() {
-        const loaderHtml = `<div id="infinite-scroll-loader" style="display: none; text-align: center; padding: 20px; grid-column: 1 / -1;"><div class="loader"></div></div>`;
+        const loaderHtml = `<div id="infinite-scroll-loader" style="display: none; text-align: center; padding: 20px; grid-column: 1 / -1;"><div class="loader" style="width: 40px; height: 40px; margin: 0 auto 10px; border: 3px solid #f3f3f3; border-top: 3px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite;"></div></div>`;
         this.state.container.insertAdjacentHTML('beforeend', loaderHtml);
         this.state.loader = document.getElementById('infinite-scroll-loader');
     },
@@ -26,7 +31,7 @@ window.InfiniteScrollModule = {
     handleScroll() {
         if (this.state.isLoading || !this.state.hasMore) return;
         const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-        if (scrollTop + clientHeight >= scrollHeight - 200) {
+        if (scrollTop + clientHeight >= scrollHeight - this.config.threshold) {
             this.loadNextPage();
         }
     },
@@ -34,6 +39,8 @@ window.InfiniteScrollModule = {
     async loadInitialData() {
         this.state.currentPage = 1;
         this.state.hasMore = true;
+        this.state.loadedItems = [];
+        window.app.productsCache = [];
         this.state.container.innerHTML = '';
         this.createLoader();
         await this.loadPage(1);
@@ -45,15 +52,27 @@ window.InfiniteScrollModule = {
     },
 
     async loadPage(page) {
+        if (this.state.isLoading) return;
         this.state.isLoading = true;
         if (this.state.loader) this.state.loader.style.display = 'block';
 
         try {
-            const params = new URLSearchParams({ page, limit: 12, ...this.state.filters });
-            const response = await window.app.api.get(`/api/archives/paginated/list?${params}`);
+            const cleanFilters = {};
+            for (const key in this.state.filters) {
+                const value = this.state.filters[key];
+                if (value !== null && value !== undefined && value !== '') {
+                    cleanFilters[key] = value;
+                }
+            }
+
+            const params = new URLSearchParams({ page, limit: this.config.itemsPerPage, ...cleanFilters });
+
+            // ЗМІНА: Вмикаємо кеш тільки для першої сторінки
+            const options = (page === 1) ? { useCache: true, ttl: 300 } : {};
+            const response = await window.app.api.get(`/api/archives/paginated/list?${params}`, options);
 
             if (response && response.items) {
-                // ВАЖЛИВО: Оновлюємо кеш товарів, щоб кнопка "Додати в кошик" працювала
+                this.state.loadedItems.push(...response.items);
                 window.app.productsCache.push(...response.items);
 
                 const fragment = document.createDocumentFragment();
@@ -73,6 +92,7 @@ window.InfiniteScrollModule = {
             }
         } catch (error) {
             console.error('Infinite scroll error:', error);
+            this.showError();
         } finally {
             this.state.isLoading = false;
             if (this.state.loader) this.state.loader.style.display = 'none';
@@ -91,7 +111,11 @@ window.InfiniteScrollModule = {
     },
 
     showEmptyMessage() {
-        this.state.container.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 50px;"><h3>${window.app.t('catalog.notFound')}</h3></div>`;
+        this.state.container.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 50px;"><h3>${window.app.t('catalog.notFound')}</h3><p style="color: var(--tg-theme-hint-color);">${window.app.t('catalog.tryChangeSearch')}</p></div>`;
+    },
+
+    showError() {
+        this.state.container.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #e74c3c;"><p>Помилка завантаження</p></div>`;
     },
 
     setFilters(filters) {

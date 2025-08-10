@@ -1,4 +1,4 @@
-# backend/main.py
+# backend/main.py - З ВИПРАВЛЕНИМ CORS
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,13 +7,14 @@ import logging
 from pathlib import Path
 
 # Імпорти для роботи з БД
-from database import engine, Base, async_session
-from models.archive import Archive
+from database import engine, Base
+from models import * # Імпортуємо все одразу для Alembic
 from data.mock_data import mock_archives_list
 from sqlalchemy import select, func
 
 # Імпорти для API
-from api import auth, archives, orders, admin, subscriptions, bonuses, referrals, vip, payments, downloads
+from api import (auth, archives, orders, admin, subscriptions, bonuses, referrals,
+                 vip, payments, downloads, favorites, history, ratings, notifications )
 from config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -21,10 +22,10 @@ logger = logging.getLogger(__name__)
 
 # --- ЛОГІКА ЗАПУСКУ ТА НАПОВНЕННЯ БД ---
 async def init_db():
-    """Створює всі таблиці в базі даних."""
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database tables created.")
+        # ВИДАЛЕНО: Створення таблиць тепер повністю на Alembic
+        # await conn.run_sync(Base.metadata.create_all)
+        pass
 
 async def seed_data():
     """Заповнює таблицю архівів тестовими даними."""
@@ -41,28 +42,25 @@ async def seed_data():
 async def lifespan(app: FastAPI):
     logger.info("Application startup...")
     await init_db()
-    await seed_data()
+    # await seed_data() # Рекомендую закоментувати після першого запуску
     yield
     logger.info("Application shutdown.")
 
 # --- СТВОРЕННЯ ДОДАТКУ ---
 app = FastAPI(title="RevitBot Web API", version="1.0.0", lifespan=lifespan)
 
-# --- НАЛАШТУВАННЯ CORS ---
+# --- ВИПРАВЛЕННЯ CORS ---
+# Дозволяємо запити з будь-якого джерела, з будь-якими методами та заголовками.
+# Для розробки це безпечно, для продакшену можна буде обмежити.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "http://localhost:3000",
-        "https://web.telegram.org"
-    ],
+    allow_origins=["*"], # Дозволити всі джерела
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_methods=["*"], # Дозволити всі методи (GET, POST, etc.)
+    allow_headers=["*"], # Дозволити всі заголовки
 )
 
-# Підключення роутерів (ДОДАНО ADMIN)
+# Підключення роутерів (всі ваші існуючі роутери)
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(archives.router, prefix="/api/archives", tags=["archives"])
 app.include_router(orders.router, prefix="/api/orders", tags=["orders"])
@@ -73,13 +71,12 @@ app.include_router(referrals.router, prefix="/api/referrals", tags=["referrals"]
 app.include_router(vip.router, prefix="/api/vip", tags=["vip"])
 app.include_router(payments.router, prefix="/api/payments", tags=["payments"])
 app.include_router(downloads.router, prefix="/api/downloads", tags=["downloads"])
+app.include_router(favorites.router, prefix="/api/favorites", tags=["favorites"])
+app.include_router(history.router, prefix="/api/history", tags=["history"])
+app.include_router(ratings.router, prefix="/api/ratings", tags=["ratings"])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 
 # Тестовий ендпоінт
 @app.get("/")
 async def root():
     return {"status": "ok", "message": "RevitBot API is running"}
-
-# Додатковий тест ендпоінт для перевірки CORS
-@app.get("/test")
-async def test():
-    return {"message": "CORS test successful"}

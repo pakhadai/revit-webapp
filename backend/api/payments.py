@@ -8,6 +8,7 @@ from models.payment import Payment
 from models.order import Order
 from models.subscription import Subscription, SubscriptionStatus
 from models.bonus import BonusTransaction, BonusTransactionType, VipLevel
+from models.notification import Notification
 from services.cryptomus import cryptomus_service
 from config import settings
 from .auth import get_current_user_dependency
@@ -211,20 +212,26 @@ async def cryptomus_webhook(
 
 async def process_order_payment(payment: Payment, session: AsyncSession):
     """Обробка оплати замовлення"""
+    order = await session.get(Order, payment.order_id)
+    if not order: return
 
-    # Отримуємо замовлення
-    result = await session.execute(
-        select(Order).where(Order.id == payment.order_id)
-    )
-    order = result.scalar_one_or_none()
-
-    if not order:
-        logger.error(f"Order not found for payment: {payment.payment_id}")
-        return
-
-    # Оновлюємо статус замовлення
     order.status = "completed"
     order.completed_at = datetime.utcnow()
+
+    # Створюємо повідомлення для кожного товару в замовленні
+    items_result = await session.execute(select(OrderItem).where(OrderItem.order_id == order.id))
+    items = items_result.scalars().all()
+
+    for item in items:
+        archive = await session.get(Archive, item.archive_id)
+        if archive:
+            notification = Notification(
+                user_id=payment.user_id,
+                message=f"Будь ласка, оцініть ваш новий архів: {archive.title.get('ua', 'архів')}",
+                type="rate_reminder",
+                related_archive_id=item.archive_id
+            )
+            session.add(notification)
 
     # Отримуємо користувача
     user_result = await session.execute(

@@ -38,7 +38,7 @@
     "tryChangeSearch": "Try changing search parameters"
   },
   "search": {
-    "placeholder": "Search products..."
+    "placeholder": "Search by name, description or code..."
   },
   "filter": {
     "allTypes": "All types",
