@@ -224,10 +224,6 @@
                             <p style="margin: 0; color: var(--tg-theme-hint-color);">@${username || 'not_set'}</p>
                         </div>
                     </div>
-                    <div id="notifications-bell" onclick="window.NotificationsModule.showNotifications()" style="position: relative; cursor: pointer; padding: 8px;">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                        <span id="notifications-counter" class="badge-count" style="top: 4px; right: 4px; display: none;">0</span>
-                    </div>
                 </div>
                 ${vipBlock}
                 ${referralsBlock}

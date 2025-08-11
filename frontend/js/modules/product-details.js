@@ -24,11 +24,32 @@ window.ProductDetailsModule = {
             await window.CommentsModule.init(window.app);
         }
 
-        const archive = window.app.productsCache.find(p => p.id === archiveId);
-        if (!archive) {
-            window.app.tg.showAlert('Помилка: не вдалося знайти дані про товар.');
-            return;
-        }
+        let archive = window.app.productsCache.find(p => p.id === archiveId);
+
+            // ✅ ПОКРАЩЕННЯ: Якщо товару немає в кеші - завантажуємо його з сервера
+            if (!archive) {
+                try {
+                    // Робимо запит до API, щоб отримати дані одного конкретного товару
+                    archive = await window.app.api.get(`/api/archives/${archiveId}`);
+
+                    // Додаємо завантажений товар у кеш, щоб не робити зайвих запитів
+                    if (archive && !window.app.productsCache.find(p => p.id === archiveId)) {
+                        window.app.productsCache.push(archive);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch product details:', error);
+                    window.app.tg.showAlert('Помилка: не вдалося завантажити дані про товар.');
+                    this.close(); // Закриваємо модальне вікно, якщо воно було
+                    return;
+                }
+            }
+
+            // Остаточна перевірка, чи вдалося отримати дані про товар
+            if (!archive) {
+                window.app.tg.showAlert('Помилка: товар не знайдено.');
+                this.close();
+                return;
+            }
 
         // Трекаємо перегляд
         window.HistoryModule.trackView(archiveId);

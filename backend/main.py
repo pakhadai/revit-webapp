@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 # Імпорти для роботи з БД
-from database import engine, Base
+from database import engine, Base, async_session
 from models import * # Імпортуємо все одразу для Alembic
 from data.mock_data import mock_archives_list
 from sqlalchemy import select, func
@@ -23,11 +23,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # --- ЛОГІКА ЗАПУСКУ ТА НАПОВНЕННЯ БД ---
+
 async def init_db():
+    """Створює всі таблиці в базі даних на основі моделей, якщо вони ще не існують."""
     async with engine.begin() as conn:
-        # ВИДАЛЕНО: Створення таблиць тепер повністю на Alembic
-        # await conn.run_sync(Base.metadata.create_all)
-        pass
+        await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables verified/created.")
+
+        await seed_data()  # <--- ТЕПЕР ВІН АКТИВНИЙ
 
 async def seed_data():
     """Заповнює таблицю архівів тестовими даними."""
@@ -39,15 +42,6 @@ async def seed_data():
                 session.add(Archive(**archive_data))
             await session.commit()
             logger.info("Mock archives have been seeded.")
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    logger.info("Application startup...")
-    await init_db()
-    # await seed_data() # Рекомендую закоментувати після першого запуску
-    yield
-    logger.info("Application shutdown.")
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

@@ -26,6 +26,16 @@
             <div class="header-content">
                 <h1 class="header-title">RevitBot</h1>
                 <div class="header-actions">
+                    <button id="notifications-bell" class="icon-btn" onclick="window.NotificationsModule.showNotifications()">
+                        <div style="position: relative;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                            </svg>
+                            <span id="notifications-counter" class="badge-count" style="top: -5px; right: -5px; display: none;">0</span>
+                        </div>
+                    </button>
+
                     <button id="search-btn" class="icon-btn">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"/>

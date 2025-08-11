@@ -56,7 +56,7 @@ window.NotificationsModule = {
     },
 
     async handleNotificationClick(notificationId, archiveId) {
-        // Позначаємо як прочитане
+        // Позначаємо як прочитане (ця частина залишається без змін)
         const notification = this.notifications.find(n => n.id === notificationId);
         if (notification && !notification.is_read) {
             try {
@@ -64,7 +64,6 @@ window.NotificationsModule = {
                 notification.is_read = true;
                 this.unreadCount--;
                 this.updateBellUI();
-                // Оновлюємо вигляд елемента у списку
                 const itemEl = document.querySelector(`.notification-item[onclick*="handleNotificationClick(${notificationId}"]`);
                 if(itemEl) itemEl.classList.remove('unread');
             } catch (error) {
@@ -72,11 +71,23 @@ window.NotificationsModule = {
             }
         }
 
-        // Якщо є пов'язаний архів - відкриваємо його
+        // ✅ ОСНОВНЕ ВИПРАВЛЕННЯ ТУТ
+        // Якщо є пов'язаний архів - завантажуємо модуль і відкриваємо його
         if (archiveId) {
+            // Спочатку закриваємо модальне вікно сповіщень
             document.getElementById('notifications-modal').remove();
-            if (window.ProductDetailsModule) {
+
+            try {
+                // Перевіряємо, чи існує модуль ProductDetailsModule
+                if (!window.ProductDetailsModule) {
+                    // Якщо ні - завантажуємо його
+                    await this.app.loadScript('js/modules/product-details.js');
+                }
+                // Тепер, коли ми впевнені, що модуль завантажений, викликаємо його
                 window.ProductDetailsModule.show(archiveId);
+            } catch (error) {
+                console.error("Failed to load or show product details:", error);
+                this.app.tg.showAlert("Не вдалося відкрити сторінку товару.");
             }
         }
     }
