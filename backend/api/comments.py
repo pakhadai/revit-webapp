@@ -17,11 +17,13 @@ router = APIRouter()
 
 # Функція для перевірки доступу до архіву (як у ratings.py)
 async def check_archive_access(user_id: int, archive_id: int, session: AsyncSession) -> bool:
-    # 1. Перевіряємо, чи архів безкоштовний
+    """Перевірка чи користувач має доступ до архіву"""
+
+    # 1. Перевіряємо чи архів безкоштовний
     archive = await session.get(Archive, archive_id)
     if not archive:
         return False
-    if archive.archive_type == 'free':
+    if archive.archive_type == 'free' or archive.price == 0:
         return True
 
     # 2. Перевіряємо покупку
@@ -35,6 +37,11 @@ async def check_archive_access(user_id: int, archive_id: int, session: AsyncSess
         return True
 
     # 3. Перевіряємо підписку
+    user = await session.get(User, user_id)
+    if user and user.has_active_subscription:
+        return True
+
+    # 4. Перевіряємо підписку через SubscriptionArchive
     subscription = await session.execute(
         select(SubscriptionArchive).where(
             SubscriptionArchive.user_id == user_id,
@@ -44,7 +51,7 @@ async def check_archive_access(user_id: int, archive_id: int, session: AsyncSess
     if subscription.scalar_one_or_none():
         return True
 
-    # 4. Перевіряємо завершені замовлення
+    # 5. Перевіряємо завершені замовлення
     completed_order = await session.execute(
         select(Order.id)
         .join(OrderItem, Order.id == OrderItem.order_id)

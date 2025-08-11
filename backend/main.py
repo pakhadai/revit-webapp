@@ -16,7 +16,7 @@ from scheduler import scheduler
 
 # Імпорти для API
 from api import (auth, archives, orders, admin, subscriptions, bonuses, referrals,
-                 vip, payments, downloads, favorites, history, ratings, notifications )
+                 vip, payments, downloads, favorites, history, ratings, notifications, comments )
 from config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -92,6 +92,7 @@ app.include_router(favorites.router, prefix="/api/favorites", tags=["favorites"]
 app.include_router(history.router, prefix="/api/history", tags=["history"])
 app.include_router(ratings.router, prefix="/api/ratings", tags=["ratings"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
+app.include_router(comments.router, prefix="/api/comments", tags=["comments"])
 
 # Тестовий ендпоінт
 @app.get("/")

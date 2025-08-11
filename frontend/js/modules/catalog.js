@@ -49,7 +49,15 @@ window.CatalogModule = {
 
         return `
             <div class="product-card" data-id="${id}"
-                 onclick="if (!event.target.closest('button')) { window.ProductDetailsModule.show(${id}); }"
+                 onclick="(async function(e) {
+                     if (!e.target.closest('button')) {
+                         e.stopPropagation();
+                         if (!window.ProductDetailsModule) {
+                             await window.app.loadScript('js/modules/product-details.js');
+                         }
+                         window.ProductDetailsModule.show(${id});
+                     }
+                 })(event)"
                  style="background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;">
                 <div>
                     <div style="height: 120px; border-radius: 8px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); position: relative;">

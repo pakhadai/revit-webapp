@@ -159,9 +159,26 @@
         }
 
         async getCatalogPage() {
-            // Завантажуємо всі модулі, потрібні для роботи каталогу
+            // Завантажуємо всі модулі
             if (!window.CatalogModule) await this.loadScript('js/modules/catalog.js');
             if (!window.ProductDetailsModule) await this.loadScript('js/modules/product-details.js');
+            if (!window.RatingsModule) await this.loadScript('js/modules/ratings.js');
+            if (!window.FavoritesModule) await this.loadScript('js/modules/favorites.js');
+            if (!window.HistoryModule) await this.loadScript('js/modules/history.js');
+            if (!window.CommentsModule) await this.loadScript('js/modules/comments.js');
+
+            // Ініціалізуємо модулі які потребують app
+            if (window.RatingsModule && !window.RatingsModule.app) {
+                await window.RatingsModule.init(this);
+            }
+
+            if (window.CommentsModule && !window.CommentsModule.app) {
+                await window.CommentsModule.init(this);
+            }
+
+            if (window.FavoritesModule && !window.FavoritesModule.app) {
+                await window.FavoritesModule.init(this);
+            }
 
             return await window.CatalogModule.getPage(this);
         }

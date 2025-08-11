@@ -38,5 +38,14 @@ window.HistoryModule = {
         } catch (error) {
             window.app.tg.showAlert('Не вдалося очистити історію.');
         }
+    },
+
+    async trackView(archiveId) {
+        try {
+            await window.app.api.post(`/api/history/view/${archiveId}`);
+            console.log(`Tracked view for archive ${archiveId}`);
+        } catch (error) {
+            console.error('Failed to track view:', error);
+        }
     }
 };

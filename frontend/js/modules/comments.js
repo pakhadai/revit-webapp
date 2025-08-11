@@ -1,14 +1,22 @@
-// frontend/js/modules/comments.js - З ПОВНОЮ МУЛЬТИМОВНІСТЮ
+// frontend/js/modules/comments.js
 window.CommentsModule = {
     comments: [],
     archiveId: null,
+    app: null, // Додаємо змінну для зберігання app
 
     async init(app) {
-        this.app = app;
+        this.app = app; // Зберігаємо посилання на app
+        console.log('CommentsModule initialized');
     },
 
     // Скорочення для перекладів
     t(key, params = {}) {
+        // Перевіряємо чи є app
+        if (!this.app) {
+            console.warn('CommentsModule not initialized, using default text');
+            return key; // Повертаємо ключ якщо app немає
+        }
+
         let translation = this.app.t(`comments.${key}`);
 
         // Заміна параметрів в перекладі
@@ -19,11 +27,16 @@ window.CommentsModule = {
         return translation;
     },
 
-    // Завантажити коментарі для архіву
     async loadComments(archiveId) {
+        // Перевіряємо ініціалізацію
+        if (!this.app) {
+            console.error('CommentsModule not initialized. Call init() first.');
+            return { comments: [], total: 0 };
+        }
+
         try {
             const data = await this.app.api.get(`/api/comments/${archiveId}`);
-            this.comments = data.comments;
+            this.comments = data.comments || [];
             this.archiveId = archiveId;
             return data;
         } catch (error) {
@@ -34,25 +47,31 @@ window.CommentsModule = {
 
     // Показати модальне вікно з коментарями
     async showComments(archiveId) {
+        // Перевіряємо ініціалізацію
+        if (!this.app) {
+            console.error('CommentsModule not initialized');
+            return;
+        }
+
         const app = this.app;
         const data = await this.loadComments(archiveId);
         const lang = app.currentLang || 'ua';
-        const archiveTitle = data.archive?.title[lang] || data.archive?.title['en'] || this.t('title');
+        const archiveTitle = data.archive?.title?.[lang] || data.archive?.title?.['en'] || this.t('title');
 
         const modalId = 'comments-modal';
         this.closeModal();
 
         const modalHtml = `
             <div class="modal-overlay" id="${modalId}" onclick="if(event.target.id === '${modalId}') CommentsModule.closeModal()">
-                <div class="modal-content" style="max-width: 600px; max-height: 80vh; display: flex; flex-direction: column;">
+                <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
                     <div class="modal-header">
-                        <h3>💬 ${this.t('titleWithName', { name: archiveTitle })}</h3>
-                        <button onclick="CommentsModule.closeModal()" class="modal-close-btn">&times;</button>
+                        <h3>${this.t('titleWithName', {name: archiveTitle})}</h3>
+                        <button onclick="CommentsModule.closeModal()" class="close-btn">✖</button>
                     </div>
 
-                    <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;">
+                    <div class="modal-body">
                         <!-- Форма додавання коментаря -->
-                        <div id="comment-form" style="margin-bottom: 20px; padding: 15px; background: var(--tg-theme-secondary-bg-color); border-radius: 8px;">
+                        <div style="padding: 15px; background: var(--tg-theme-secondary-bg-color); border-radius: 8px; margin-bottom: 20px;">
                             <textarea
                                 id="new-comment-text"
                                 placeholder="${this.t('placeholder')}"
@@ -60,9 +79,7 @@ window.CommentsModule = {
                                 maxlength="500"
                             ></textarea>
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-                                <span id="char-counter" style="font-size: 12px; color: var(--tg-theme-hint-color);">
-                                    ${this.t('charCounter', { current: 0, max: 500 })}
-                                </span>
+                                <span id="char-counter" style="color: var(--tg-theme-hint-color); font-size: 12px;">0 / 500</span>
                                 <button
                                     onclick="CommentsModule.addComment()"
                                     style="padding: 8px 20px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"
@@ -86,12 +103,49 @@ window.CommentsModule = {
         // Додаємо лічильник символів
         const textarea = document.getElementById('new-comment-text');
         const counter = document.getElementById('char-counter');
-        textarea.addEventListener('input', () => {
-            counter.textContent = this.t('charCounter', {
-                current: textarea.value.length,
-                max: 500
+        if (textarea && counter) {
+            textarea.addEventListener('input', () => {
+                counter.textContent = `${textarea.value.length} / 500`;
             });
-        });
+        }
+    },
+
+    async addComment() {
+        if (!this.app) {
+            console.error('CommentsModule not initialized');
+            return;
+        }
+
+        const textarea = document.getElementById('new-comment-text');
+        const text = textarea.value.trim();
+
+        if (!text || text.length < 3) {
+            this.app.tg.showAlert(this.t('minLength'));
+            return;
+        }
+
+        try {
+            const response = await this.app.api.post(`/api/comments/${this.archiveId}`, {
+                text: text
+            });
+
+            if (response.success) {
+                // Додаємо новий коментар до списку
+                this.comments.unshift(response.comment);
+
+                // Оновлюємо список
+                document.getElementById('comments-list').innerHTML = this.renderCommentsList(this.comments);
+
+                // Очищаємо поле
+                textarea.value = '';
+                document.getElementById('char-counter').textContent = '0 / 500';
+
+                // Показуємо повідомлення
+                this.app.tg.showAlert(`✅ ${this.t('commentAdded')}`);
+            }
+        } catch (error) {
+            this.app.tg.showAlert(`${this.t('error')}: ${error.message}`);
+        }
     },
 
     // Рендер списку коментарів
@@ -110,25 +164,32 @@ window.CommentsModule = {
 
     // Форматування дати залежно від мови
     formatDate(dateString) {
-        const date = new Date(dateString);
-        const lang = this.app.currentLang || 'ua';
-        const locale = lang === 'ua' ? 'uk-UA' : 'en-US';
+        if (!dateString) return '';
 
-        const dateStr = date.toLocaleDateString(locale);
-        const timeStr = date.toLocaleTimeString(locale, {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        try {
+            const date = new Date(dateString);
+            const lang = this.app.currentLang || 'ua';
+            const locale = lang === 'ua' ? 'uk-UA' : 'en-US';
 
-        return `${dateStr} ${lang === 'ua' ? 'о' : 'at'} ${timeStr}`;
+            const dateStr = date.toLocaleDateString(locale);
+            const timeStr = date.toLocaleTimeString(locale, {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            return `${dateStr} ${lang === 'ua' ? 'о' : 'at'} ${timeStr}`;
+        } catch (error) {
+            console.error('Date formatting error:', error);
+            return dateString;
+        }
     },
 
     // Рендер одного коментаря
     renderComment(comment, isReply = false) {
         const app = this.app;
-        const currentUserId = app.user?.id;
+        const currentUserId = app.user?.user_id || app.user?.id; // Перевіряємо обидва варіанти
         const isOwner = comment.user.id === currentUserId;
-        const isAdmin = app.user?.isAdmin;
+        const isAdmin = app.user?.is_admin || app.user?.isAdmin;
         const isDeleted = comment.text === this.t('deleted') || comment.text.includes('[Коментар видалено]');
 
         const commentHtml = `
@@ -138,48 +199,48 @@ window.CommentsModule = {
                 border-radius: 8px;
                 padding: 12px;
                 margin-bottom: ${isReply ? '8px' : '15px'};
-                ${isReply ? 'margin-left: 40px;' : ''}
+                ${isReply ? 'margin-left: 30px;' : ''}
             ">
-                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px;">
-                            ${comment.user.full_name ? comment.user.full_name[0].toUpperCase() : 'U'}
-                        </div>
-                        <div>
-                            <div style="font-weight: 600; font-size: 14px;">
-                                ${comment.user.full_name || comment.user.username || this.t('user')}
-                            </div>
-                            <div style="font-size: 11px; color: var(--tg-theme-hint-color);">
-                                ${this.formatDate(comment.created_at)}
-                                ${comment.is_edited ? ` • (${this.t('edited')})` : ''}
-                            </div>
-                        </div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <div>
+                        <strong style="color: var(--primary-color);">
+                            ${comment.user.full_name || comment.user.username || 'User'}
+                        </strong>
+                        ${comment.is_edited ? `<span style="color: var(--tg-theme-hint-color); font-size: 11px;">(${this.t('edited')})</span>` : ''}
                     </div>
 
                     ${(isOwner || isAdmin) && !isDeleted ? `
-                        <div style="display: flex; gap: 8px;">
+                        <div style="display: flex; gap: 10px;">
                             ${isOwner ? `
                                 <button
                                     onclick="CommentsModule.editComment(${comment.id})"
-                                    style="background: none; border: none; color: var(--tg-theme-hint-color); cursor: pointer; font-size: 20px;"
-                                    title="${this.t('edit')}">✏️</button>
+                                    style="background: none; border: none; color: var(--tg-theme-link-color); cursor: pointer; font-size: 12px;"
+                                >
+                                    ✏️ ${this.t('edit')}
+                                </button>
                             ` : ''}
                             <button
                                 onclick="CommentsModule.deleteComment(${comment.id})"
-                                style="background: none; border: none; color: var(--tg-theme-hint-color); cursor: pointer; font-size: 20px;"
-                                title="${this.t('delete')}">🗑️</button>
+                                style="background: none; border: none; color: #ff5555; cursor: pointer; font-size: 12px;"
+                            >
+                                🗑️ ${this.t('delete')}
+                            </button>
                         </div>
                     ` : ''}
                 </div>
 
-                <div id="comment-text-${comment.id}" style="font-size: 14px; line-height: 1.5; margin-bottom: 10px;">
+                <div style="margin-bottom: 5px; color: var(--tg-theme-text-color);">
                     ${isDeleted ? `<span style="color: var(--tg-theme-hint-color); font-style: italic;">${this.t('deleted')}</span>` : comment.text}
+                </div>
+
+                <div style="font-size: 11px; color: var(--tg-theme-hint-color);">
+                    ${this.formatDate(comment.created_at)}
                 </div>
 
                 ${!isReply && !isDeleted ? `
                     <button
                         onclick="CommentsModule.showReplyForm(${comment.id})"
-                        style="background: none; border: none; color: var(--primary-color); cursor: pointer; font-size: 13px; font-weight: 600;"
+                        style="background: none; border: none; color: var(--primary-color); cursor: pointer; font-size: 13px; font-weight: 600; margin-top: 8px;"
                     >
                         ↩️ ${this.t('reply')}
                     </button>
@@ -219,46 +280,6 @@ window.CommentsModule = {
         `;
 
         return commentHtml;
-    },
-
-    // Додати коментар
-    async addComment() {
-        const textarea = document.getElementById('new-comment-text');
-        const text = textarea.value.trim();
-
-        if (!text || text.length < 3) {
-            this.app.tg.showAlert(this.t('minLength'));
-            return;
-        }
-
-        try {
-            const response = await this.app.api.post(`/api/comments/${this.archiveId}`, { text });
-
-            if (response.success) {
-                // Додаємо новий коментар на початок списку
-                this.comments.unshift({
-                    ...response.comment,
-                    replies: []
-                });
-
-                // Оновлюємо список
-                document.getElementById('comments-list').innerHTML = this.renderCommentsList(this.comments);
-
-                // Очищаємо форму
-                textarea.value = '';
-                document.getElementById('char-counter').textContent = this.t('charCounter', {
-                    current: 0,
-                    max: 500
-                });
-
-                // Показуємо повідомлення
-                if (this.app.tg.isAvailable && this.app.tg.HapticFeedback) {
-                    this.app.tg.HapticFeedback.notificationOccurred('success');
-                }
-            }
-        } catch (error) {
-            this.app.tg.showAlert(`${this.t('error')}: ${error.message}`);
-        }
     },
 
     // Показати форму відповіді

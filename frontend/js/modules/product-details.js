@@ -4,9 +4,25 @@ window.ProductDetailsModule = {
 
     async show(archiveId) {
         // Завантажуємо необхідні модулі
-        if (!window.HistoryModule) await window.app.loadScript('js/modules/history.js');
-        if (!window.RatingsModule) await window.app.loadScript('js/modules/ratings.js');
-        if (!window.CommentsModule) await window.app.loadScript('js/modules/comments.js');
+        if (!window.HistoryModule) {
+            await window.app.loadScript('js/modules/history.js');
+        }
+
+        if (!window.RatingsModule) {
+            await window.app.loadScript('js/modules/ratings.js');
+            await window.RatingsModule.init(window.app);
+        }
+
+        if (!window.CommentsModule) {
+            await window.app.loadScript('js/modules/comments.js');
+            // ВАЖЛИВО: Ініціалізуємо модуль коментарів
+            await window.CommentsModule.init(window.app);
+        }
+
+        // Перевіряємо що модуль ініціалізований
+        if (!window.CommentsModule.app) {
+            await window.CommentsModule.init(window.app);
+        }
 
         const archive = window.app.productsCache.find(p => p.id === archiveId);
         if (!archive) {
