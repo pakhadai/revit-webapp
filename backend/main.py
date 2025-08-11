@@ -1,4 +1,5 @@
 # backend/main.py - З ВИПРАВЛЕНИМ CORS
+import asyncio
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +12,7 @@ from database import engine, Base
 from models import * # Імпортуємо все одразу для Alembic
 from data.mock_data import mock_archives_list
 from sqlalchemy import select, func
+from scheduler import scheduler
 
 # Імпорти для API
 from api import (auth, archives, orders, admin, subscriptions, bonuses, referrals,
@@ -44,6 +46,21 @@ async def lifespan(app: FastAPI):
     await init_db()
     # await seed_data() # Рекомендую закоментувати після першого запуску
     yield
+    logger.info("Application shutdown.")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Application startup...")
+    await init_db()
+
+    # Запускаємо планувальник в фоні
+    scheduler_task = asyncio.create_task(scheduler.start())
+
+    yield
+
+    # Зупиняємо планувальник при виключенні
+    scheduler.stop()
     logger.info("Application shutdown.")
 
 # --- СТВОРЕННЯ ДОДАТКУ ---

@@ -1,15 +1,16 @@
-# backend/api/orders.py - З ВИПРАВЛЕННЯМ ДОСТУПУ
+# backend/api/orders.py - ПОВНА ВЕРСІЯ З PUSH-ПОВІДОМЛЕННЯМИ
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_session
 from models.order import Order, OrderItem
-from models.archive import Archive, ArchivePurchase  # <-- Додаємо ArchivePurchase
+from models.archive import Archive, ArchivePurchase
 from models.user import User
-from models.notification import Notification  # <-- Додаємо Notification
+from models.notification import Notification
 from config import settings
 import uuid
 from sqlalchemy import select
 from datetime import datetime
+from services.telegram import telegram_service  # <-- НОВИЙ ІМПОРТ
 
 from .auth import get_current_user_dependency
 from .vip_processing import update_vip_status_after_purchase
@@ -27,11 +28,17 @@ async def grant_user_access_to_purchased_items(order_id: int, user_id: int, sess
     for archive_id in archive_ids:
         # Перевіряємо, чи вже існує такий запис, щоб уникнути дублікатів
         existing_purchase = await session.execute(
-            select(ArchivePurchase).where(ArchivePurchase.user_id == user_id, ArchivePurchase.archive_id == archive_id)
+            select(ArchivePurchase).where(
+                ArchivePurchase.user_id == user_id,
+                ArchivePurchase.archive_id == archive_id
+            )
         )
         if not existing_purchase.scalar_one_or_none():
-            new_purchase = ArchivePurchase(user_id=user_id, archive_id=archive_id,
-                                           price_paid=0)  # price_paid тут не критичний
+            new_purchase = ArchivePurchase(
+                user_id=user_id,
+                archive_id=archive_id,
+                price_paid=0  # price_paid тут не критичний
+            )
             session.add(new_purchase)
 
     await session.commit()
@@ -43,6 +50,8 @@ async def create_order(
         session: AsyncSession = Depends(get_session),
         current_user: User = Depends(get_current_user_dependency)
 ):
+    """Створити нове замовлення"""
+
     items = data.get("items", [])
     if not items:
         raise HTTPException(status_code=400, detail="Cart is empty")
@@ -50,16 +59,25 @@ async def create_order(
     total_price = 0
     order_items_to_create = []
 
+    # Обробляємо кожен товар у кошику
     for item_data in items:
         archive = await session.get(Archive, item_data.get("id"))
         if not archive:
-            raise HTTPException(status_code=404, detail=f"Archive with id {item_data.get('id')} not found")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Archive with id {item_data.get('id')} not found"
+            )
 
         price = archive.price
         quantity = item_data.get("quantity", 1)
         total_price += price * quantity
-        order_items_to_create.append({"archive_id": archive.id, "quantity": quantity, "price": price})
+        order_items_to_create.append({
+            "archive_id": archive.id,
+            "quantity": quantity,
+            "price": price
+        })
 
+    # Створюємо замовлення
     new_order = Order(
         order_id=str(uuid.uuid4()),
         user_id=current_user.id,
@@ -70,6 +88,7 @@ async def create_order(
     session.add(new_order)
     await session.flush()
 
+    # Додаємо товари до замовлення
     for item in order_items_to_create:
         order_item = OrderItem(order_id=new_order.id, **item)
         session.add(order_item)
@@ -85,14 +104,35 @@ async def create_order(
             )
             session.add(notification)
 
+    # У режимі розробки автоматично завершуємо замовлення
     if settings.DEV_MODE:
         new_order.status = "completed"
         new_order.completed_at = datetime.utcnow()
+
+        # Оновлюємо VIP статус
         await update_vip_status_after_purchase(current_user.id, new_order, session)
-        # ВИПРАВЛЕННЯ: Надаємо доступ до товарів одразу після "оплати" в dev-режимі
+
+        # Надаємо доступ до товарів
         await grant_user_access_to_purchased_items(new_order.id, current_user.id, session)
 
     await session.commit()
+
+    # НОВИЙ КОД: Відправляємо push-повідомлення через Telegram якщо замовлення завершено
+    if new_order.status == "completed":
+        try:
+            # Відправляємо повідомлення в Telegram
+            await telegram_service.send_order_notification(
+                user_id=current_user.user_id,  # Це Telegram ID користувача
+                order_id=new_order.order_id[:8],  # Короткий ID для зручності
+                total=total_price,
+                lang=current_user.language_code  # Мова користувача
+            )
+        except Exception as e:
+            # Якщо не вдалося відправити повідомлення, не зупиняємо процес
+            # Просто логуємо помилку
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send Telegram notification: {str(e)}")
 
     return {
         "success": True,

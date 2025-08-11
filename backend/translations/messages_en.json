@@ -1,0 +1,42 @@
+{
+  "notifications": {
+    "order": {
+      "title": "New Order",
+      "message": "✅ Order created!\n\n📦 Number: {order_id}\n💰 Total: ${total:.2f}\n\nThank you for your purchase! Your archives are ready for download."
+    },
+    "subscription": {
+      "reminder_title": "Subscription Expiring",
+      "reminder_message": "⚠️ Your Premium subscription will expire in {days} days.\n\nRenew your subscription to keep access to new archives!"
+    },
+    "daily_bonus": {
+      "title": "Daily Bonus",
+      "reminder": "💎 Don't forget to claim your daily bonus!\n\n🔥 Current streak: {streak} days\n🎁 Tomorrow's reward: {reward} bonuses\n\nDon't lose your streak!"
+    },
+    "new_archive": {
+      "title": "New Archive",
+      "message": "🆕 New archive available!\n\n📦 {title}\n🏷 Code: {code}\n\nThe archive is now available for download in your subscription!"
+    },
+    "referral": {
+      "bonus_title": "Referral Bonus",
+      "bonus_message": "🎉 You received {amount} bonuses!\n\n{name} made their first purchase using your referral link."
+    },
+    "vip": {
+      "upgrade_title": "VIP Level Upgraded",
+      "upgrade_message": "🎊 Congratulations! You reached {level} level!\n\n💰 Your cashback is now: {cashback}%"
+    },
+    "payment": {
+      "order_success_title": "Payment Successful",
+      "order_success_message": "✅ Payment of ${amount:.2f} completed successfully!\n\nYour items are available for download.",
+      "subscription_success_title": "Subscription Activated",
+      "subscription_success_message": "✅ Subscription payment successful!\n\nAmount: ${amount:.2f}\n\nYou now have access to all new archives!"
+    }
+  },
+  "buttons": {
+    "my_downloads": "📥 My Downloads",
+    "renew_subscription": "🔄 Renew Subscription",
+    "claim_bonus": "🎰 Claim Bonus",
+    "download": "📥 Download",
+    "invite_more": "👥 Invite More",
+    "view_profile": "👤 View Profile"
+  }
+}
