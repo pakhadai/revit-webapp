@@ -1,25 +1,45 @@
 # backend/main.py - З ВИПРАВЛЕНИМ CORS
-import asyncio
 
+import asyncio
+import logging
+from logging.handlers import RotatingFileHandler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+from limiter import limiter
 import logging
 from pathlib import Path
 
 # Імпорти для роботи з БД
 from database import engine, Base, async_session
-from models import * # Імпортуємо все одразу для Alembic
+from models import *
 from data.mock_data import mock_archives_list
 from sqlalchemy import select, func
 from scheduler import scheduler
 
 # Імпорти для API
-from api import (auth, archives, orders, admin, subscriptions, bonuses, referrals,
+from api import (auth, archives, orders, admin, subscriptions, bonuses, referrals, promo_codes,
                  vip, payments, downloads, favorites, history, ratings, notifications, comments )
 from config import settings
 
-logging.basicConfig(level=logging.INFO)
+log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Налаштування для запису у файл
+log_file = "app.log"
+file_handler = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5) # 10 MB
+file_handler.setFormatter(log_formatter)
+
+# Налаштування для виводу в консоль
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(log_formatter)
+
+# Створюємо основний логер
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 logger = logging.getLogger(__name__)
 
 # --- ЛОГІКА ЗАПУСКУ ТА НАПОВНЕННЯ БД ---
@@ -60,6 +80,8 @@ async def lifespan(app: FastAPI):
 # --- СТВОРЕННЯ ДОДАТКУ ---
 app = FastAPI(title="RevitBot Web API", version="1.0.0", lifespan=lifespan)
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # --- ВИПРАВЛЕННЯ CORS ---
 # Дозволяємо запити з будь-якого джерела, з будь-якими методами та заголовками.
 # Для розробки це безпечно, для продакшену можна буде обмежити.
@@ -87,6 +109,7 @@ app.include_router(history.router, prefix="/api/history", tags=["history"])
 app.include_router(ratings.router, prefix="/api/ratings", tags=["ratings"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(comments.router, prefix="/api/comments", tags=["comments"])
+app.include_router(promo_codes.router, prefix="/api/promo-codes", tags=["promo-codes"])
 
 # Тестовий ендпоінт
 @app.get("/")

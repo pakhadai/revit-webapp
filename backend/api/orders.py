@@ -1,16 +1,17 @@
-# backend/api/orders.py - ПОВНА ВЕРСІЯ З PUSH-ПОВІДОМЛЕННЯМИ
+# backend/api/orders.py - ОНОВЛЕНА ВЕРСІЯ
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from models.archive import Archive
-from database import get_session
-from models.order import Order, OrderItem
-from models.archive import Archive, ArchivePurchase
-from models.user import User
-from models.notification import Notification
-from config import settings
-import uuid
 from sqlalchemy import select, func
 from datetime import datetime
+import uuid
+
+from database import get_session
+from models.archive import Archive, ArchivePurchase
+from models.order import Order, OrderItem
+from models.user import User
+from models.notification import Notification
+from models.promo_code import PromoCode, DiscountType
+from config import settings
 from services.telegram import telegram_service
 from .auth import get_current_user_dependency
 from .vip_processing import update_vip_status_after_purchase
@@ -44,45 +45,93 @@ async def grant_user_access_to_purchased_items(order_id: int, user_id: int, sess
     await session.commit()
 
 
+@router.post("/apply-promo")
+async def apply_promo_code(data: dict, session: AsyncSession = Depends(get_session)):
+    code_str = data.get("code", "").upper().strip()
+    subtotal = float(data.get("subtotal", 0))
+
+    if not code_str:
+        raise HTTPException(status_code=400, detail="Promo code is required")
+
+    result = await session.execute(select(PromoCode).where(PromoCode.code == code_str))
+    promo_code = result.scalar_one_or_none()
+
+    if not promo_code or not promo_code.is_active:
+        raise HTTPException(status_code=404, detail="Invalid promo code")
+    if promo_code.expires_at and promo_code.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Promo code has expired")
+    if promo_code.max_uses is not None and promo_code.current_uses >= promo_code.max_uses:
+        raise HTTPException(status_code=400, detail="Promo code has reached its usage limit")
+
+    discount = 0
+    if promo_code.discount_type == DiscountType.PERCENTAGE:
+        discount = subtotal * (promo_code.value / 100)
+    elif promo_code.discount_type == DiscountType.FIXED_AMOUNT:
+        discount = promo_code.value
+
+    final_total = max(0, subtotal - discount)
+
+    return {
+        "success": True,
+        "discount_amount": round(discount, 2),
+        "final_total": round(final_total, 2),
+        "message": f"Знижку {promo_code.value}{'%' if promo_code.discount_type == DiscountType.PERCENTAGE else ' USD'} застосовано!"
+    }
+
+
 @router.post("/create")
 async def create_order(
         data: dict,
         session: AsyncSession = Depends(get_session),
         current_user: User = Depends(get_current_user_dependency)
 ):
-    """Створити нове замовлення"""
-
     items = data.get("items", [])
+    promo_code_str = data.get("promo_code", "").upper().strip()  # ✅ Отримуємо промокод
+
     if not items:
         raise HTTPException(status_code=400, detail="Cart is empty")
 
-    total_price = 0
+    subtotal = 0
     order_items_to_create = []
 
-    # Обробляємо кожен товар у кошику
     for item_data in items:
         archive = await session.get(Archive, item_data.get("id"))
         if not archive:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Archive with id {item_data.get('id')} not found"
-            )
+            raise HTTPException(status_code=404, detail=f"Archive with id {item_data.get('id')} not found")
 
         price = archive.price
-        quantity = item_data.get("quantity", 1)
-        total_price += price * quantity
-        order_items_to_create.append({
-            "archive_id": archive.id,
-            "quantity": quantity,
-            "price": price
-        })
+        # Враховуємо знижку на товар, якщо вона є
+        if archive.discount_percent > 0:
+            price = price * (1 - archive.discount_percent / 100)
 
-    # Створюємо замовлення
+        quantity = item_data.get("quantity", 1)
+        subtotal += price * quantity
+        order_items_to_create.append({"archive_id": archive.id, "quantity": quantity, "price": price})
+
+    # ✅ ЛОГІКА ПРОМОКОДУ
+    discount = 0
+    final_total = subtotal
+    if promo_code_str:
+        result = await session.execute(select(PromoCode).where(PromoCode.code == promo_code_str))
+        promo_code = result.scalar_one_or_none()
+        if promo_code and promo_code.is_active:  # Перевіряємо ще раз
+            if promo_code.discount_type == DiscountType.PERCENTAGE:
+                discount = subtotal * (promo_code.value / 100)
+            elif promo_code.discount_type == DiscountType.FIXED_AMOUNT:
+                discount = promo_code.value
+
+            final_total = max(0, subtotal - discount)
+            promo_code.current_uses += 1  # Збільшуємо лічильник
+        else:
+            promo_code_str = None  # Якщо код недійсний, не зберігаємо його
+
     new_order = Order(
         order_id=str(uuid.uuid4()),
         user_id=current_user.id,
-        subtotal=total_price,
-        total=total_price
+        subtotal=round(subtotal, 2),
+        discount=round(discount, 2),
+        total=round(final_total, 2),
+        promo_code=promo_code_str
     )
 
     session.add(new_order)

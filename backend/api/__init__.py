@@ -13,7 +13,8 @@ from .favorites import router as favorites_router
 from .history import router as history_router
 from .ratings import router as ratings_router
 from .notifications import router as notifications_router
-from .comments import router as comments_router  # ДОДАЙТЕ, ЯКЩО НЕМАЄ
+from .comments import router as comments_router
+from .promo_codes import router as promo_codes_router
 
 __all__ = [
     'auth_router',
@@ -30,5 +31,6 @@ __all__ = [
     'history_router',
     'ratings_router',
     'notifications_router',
-    'comments_router'  # ДОДАЙТЕ, ЯКЩО НЕМАЄ
+    'comments_router',
+    'promo_codes_router'
 ]

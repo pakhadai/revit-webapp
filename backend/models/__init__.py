@@ -11,6 +11,7 @@ from .view_history import ViewHistory
 from .archive_rating import ArchiveRating
 from .notification import Notification
 from .comment import Comment
+from .promo_code import PromoCode
 
 __all__ = [
     'User',
@@ -29,5 +30,6 @@ __all__ = [
     'ViewHistory',
     'ArchiveRating',
     'Comment',
-    'Notification'
+    'Notification',
+    'PromoCode'
 ]

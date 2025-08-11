@@ -1,10 +1,11 @@
 # backend/api/auth.py - ПОВНІСТЮ РОБОЧА ВЕРСІЯ
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from database import get_session
 from models.user import User
 from config import settings
+from limiter import limiter
 import hashlib
 import hmac
 import json
@@ -105,7 +106,8 @@ def verify_telegram_data(init_data: str) -> dict:
 
 
 @router.post("/telegram")
-async def telegram_auth(data: dict, session: AsyncSession = Depends(get_session)):
+@limiter.limit("5/minute")
+async def telegram_auth(request: Request, data: dict, session: AsyncSession = Depends(get_session)):
     try:
         verified_data = verify_telegram_data(data.get('initData', ''))
         tg_user = verified_data['user']

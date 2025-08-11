@@ -83,6 +83,7 @@
         async preloadAdminModules() {
             await this.loadScript('js/modules/admin.js');
             await this.loadScript('js/modules/admin-forms.js');
+            await this.loadScript('js/modules/admin-promo-codes.js');
         }
 
         async authenticate() {
@@ -187,20 +188,35 @@
             if (this.cart.length === 0) {
                 return `<div class="cart-page p-3" style="text-align: center; padding: 50px 20px;"><div style="font-size: 60px; margin-bottom: 20px;">🛒</div><h3>Кошик порожній</h3></div>`;
             }
-            const itemsHtml = this.cart.map(item => `
-                <div style="display: flex; align-items: center; padding: 10px; border-bottom: 1px solid var(--tg-theme-secondary-bg-color);">
-                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; margin-right: 15px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px;">
-                        ${item.archive_type === 'premium' ? '💎' : '📦'}
+            const itemsHtml = this.cart.map(item => `...`).join(''); // Ця частина залишається без змін
+            const subtotal = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+            // ✅ ЗАМІНІТЬ СТАРИЙ HTML КОШИКА НА ЦЕЙ
+            return `
+                <div class="cart-page p-3">
+                    <h2 style="margin-bottom: 20px;">Ваш кошик</h2>
+                    <div>${itemsHtml}</div>
+
+                    <div style="padding: 15px 10px;">
+                        <label for="promo-input" style="display: block; margin-bottom: 5px;">Промокод</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="promo-input" placeholder="Введіть код" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #ccc;">
+                            <button onclick="window.app.applyPromoCode()" style="padding: 12px 20px; background: var(--tg-theme-secondary-bg-color); border: none; border-radius: 8px; cursor: pointer;">Застосувати</button>
+                        </div>
+                        <div id="promo-message" style="font-size: 14px; margin-top: 10px;"></div>
                     </div>
-                    <div style="flex-grow: 1;">
-                        <div style="font-weight: 500;">${item.title.ua}</div>
-                        <div style="font-size: 14px; color: var(--tg-theme-hint-color);">К-сть: ${item.quantity}</div>
+
+                    <div style="padding: 20px 10px; border-top: 1px solid #ddd; margin-top: 10px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;"><span>Проміжна сума:</span><span>$${subtotal.toFixed(2)}</span></div>
+                        <div id="discount-row" style="display: none; justify-content: space-between; color: green; margin-bottom: 10px;"><span>Знижка:</span><span id="discount-amount"></span></div>
+                        <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold;"><span>Всього:</span><span id="total-amount">$${subtotal.toFixed(2)}</span></div>
                     </div>
-                    <div style="font-weight: 600; color: var(--primary-color); margin: 0 15px;">$${(item.price * item.quantity).toFixed(2)}</div>
-                    <button onclick="window.app.removeFromCart(${item.id})" style="background: transparent; border: none; color: #e74c3c; cursor: pointer; font-size: 24px; padding: 5px;">&times;</button>
-                </div>`).join('');
-            const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            return `<div class="cart-page p-3"><h2 style="margin-bottom: 20px;">Ваш кошик</h2><div>${itemsHtml}</div><div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 10px; font-size: 18px; font-weight: bold; border-top: 1px solid #ddd; margin-top: 10px;"><span>Всього:</span><span>$${total.toFixed(2)}</span></div><div style="padding: 10px;"><button onclick="window.app.proceedToCheckout()" style="width: 100%; padding: 15px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); cursor: pointer;">${this.t('buttons.checkout')}</button></div></div>`;
+
+                    <div style="padding: 10px;">
+                        <button onclick="window.app.proceedToCheckout()" style="width: 100%; padding: 15px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); cursor: pointer;">${this.t('buttons.checkout')}</button>
+                    </div>
+                </div>
+            `;
         }
 
         async getProfilePage() {
@@ -284,14 +300,48 @@
             this.loadPage('cart');
         }
 
+        this.promoCode = null; // Зберігатимемо застосований промокод
+
+        async applyPromoCode() {
+            const code = document.getElementById('promo-input').value;
+            const subtotal = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const promoMessage = document.getElementById('promo-message');
+
+            try {
+                const response = await this.api.post('/api/orders/apply-promo', { code, subtotal });
+                if (response.success) {
+                    promoMessage.style.color = 'green';
+                    promoMessage.innerText = response.message;
+                    document.getElementById('discount-amount').innerText = `- $${response.discount_amount.toFixed(2)}`;
+                    document.getElementById('discount-row').style.display = 'flex';
+                    document.getElementById('total-amount').innerText = `$${response.final_total.toFixed(2)}`;
+                    this.promoCode = code; // Зберігаємо код
+                }
+            } catch (error) {
+                promoMessage.style.color = 'red';
+                promoMessage.innerText = error.message || 'Недійсний промокод';
+                document.getElementById('discount-row').style.display = 'none';
+                document.getElementById('total-amount').innerText = `$${subtotal.toFixed(2)}`;
+                this.promoCode = null;
+            }
+        }
+
+        // Оновіть цю функцію
         proceedToCheckout() {
             if (this.cart.length === 0) return this.tg.showAlert('Кошик порожній!');
-            this.api.post('/api/orders/create', { items: this.cart })
+
+            const orderData = {
+                items: this.cart,
+                promo_code: this.promoCode // Надсилаємо код на сервер
+            };
+
+            this.api.post('/api/orders/create', orderData)
                 .then(response => {
                     if (response.success) {
                         this.tg.showAlert(`Ваше замовлення #${response.order_id} успішно створено!`);
                         this.cart = [];
                         this.storage.set('cart', []);
+                        this.promoCode = null; // Очищаємо промокод
                         this.updateCartBadge();
                         this.loadPage('catalog');
                     }
