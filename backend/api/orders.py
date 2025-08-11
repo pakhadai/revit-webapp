@@ -1,6 +1,7 @@
 # backend/api/orders.py - ПОВНА ВЕРСІЯ З PUSH-ПОВІДОМЛЕННЯМИ
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from models.archive import Archive
 from database import get_session
 from models.order import Order, OrderItem
 from models.archive import Archive, ArchivePurchase
@@ -8,10 +9,9 @@ from models.user import User
 from models.notification import Notification
 from config import settings
 import uuid
-from sqlalchemy import select
+from sqlalchemy import select, func
 from datetime import datetime
-from services.telegram import telegram_service  # <-- НОВИЙ ІМПОРТ
-
+from services.telegram import telegram_service
 from .auth import get_current_user_dependency
 from .vip_processing import update_vip_status_after_purchase
 

@@ -1,6 +1,5 @@
 // frontend/js/modules/history.js
 window.HistoryModule = {
-    async trackView(archiveId) { window.app.api.post(`/api/history/view/${archiveId}`, {}).catch(err => {}); },
 
     async showHistoryPage(app) {
         const content = document.getElementById('app-content');

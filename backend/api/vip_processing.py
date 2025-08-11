@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
-
+from models.archive import Archive
 from models.user import User
 from models.bonus import VipLevel, BonusTransaction, BonusTransactionType
 from models.order import Order
