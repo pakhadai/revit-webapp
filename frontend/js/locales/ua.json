@@ -15,6 +15,7 @@
     "addToCart": "До кошику",
     "buy": "Купити",
     "download": "Завантажити",
+    "create": "Створити",
     "unlock": "Розблокувати",
     "checkout": "Оформити замовлення",
     "cancel": "Скасувати",
@@ -223,6 +224,37 @@
     "error": "Помилка завантаження коментарів",
     "accessDenied": "Тільки власники архіву можуть коментувати",
     "notFound": "Коментар не знайдено"
+  },
+  "admin": {
+
+    "promoCodes": {
+      "title": "Керування промокодами",
+      "createButton": "Створити промокод",
+      "newPromoCode": "Новий промокод",
+      "codePlaceholder": "Код (напр. SALE15)",
+      "typePercentage": "Відсоток (%)",
+      "typeFixed": "Фіксована сума (USD)",
+      "valuePlaceholder": "Значення (напр. 15)",
+      "maxUsesPlaceholder": "Макс. використань (необов'язково)",
+      "expiresTitle": "Термін дії",
+      "loadError": "Не вдалося завантажити промокоди",
+      "noPromoCodes": "Промокодів ще немає",
+      "discount": "Знижка",
+      "expires": "Діє до",
+      "noExpiry": "Без обмежень",
+      "used": "Використано",
+      "statusActive": "Активний",
+      "statusInactive": "Неактивний",
+      "toggleStatus": "Змінити статус",
+      "requiredFields": "Код та значення є обов'язковими",
+      "createSuccess": "Промокод створено успішно!",
+      "createError": "Помилка створення",
+      "updateSuccess": "Статус оновлено",
+      "updateError": "Помилка оновлення статусу",
+      "confirmDelete": "Ви впевнені, що хочете видалити промокод {code}?",
+      "deleteSuccess": "Промокод видалено",
+      "deleteError": "Помилка видалення"
+    }
   },
 
   "vip": {

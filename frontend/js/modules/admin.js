@@ -17,7 +17,7 @@ window.AdminModule = {
                             ${this.getActionButton('🛒 Замовлення', 'Управління замовленнями', 'AdminModule.showOrders(window.app)')}
                             ${this.getActionButton('📦 Товари', 'Управління каталогом', 'AdminModule.showArchives(window.app)')}
                             ${this.getActionButton('📊 Статистика', 'Детальна аналітика', 'AdminModule.showStats(window.app)')}
-                            ${this.getActionButton('🎟️ Промокоди', 'Створити та керувати знижками', 'AdminPromoCodesModule.showPage(window.app)')} </div>
+                            ${this.getActionButton('🎟️ Промокоди', 'Створити та керувати знижками', 'AdminPromoCodesModule.showPage(window.app)')}
                         </div>
                     </div>
 

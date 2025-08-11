@@ -20,6 +20,7 @@
             this.productsCache = [];
             this.cart = this.storage.get('cart', []);
             this.isRefreshing = false;
+            this.promoCode = null;
         }
 
         async init() {
@@ -299,8 +300,6 @@
             this.updateCartBadge();
             this.loadPage('cart');
         }
-
-        this.promoCode = null; // Зберігатимемо застосований промокод
 
         async applyPromoCode() {
             const code = document.getElementById('promo-input').value;
