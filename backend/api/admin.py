@@ -1,23 +1,77 @@
-# backend/api/admin.py - ПОВНІСТЮ ВИПРАВЛЕНА ВЕРСІЯ
+# backend/api/admin.py - ДІАГНОСТИЧНА ВЕРСІЯ
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from database import get_session
+from models import Order, OrderItem
 from models.user import User
 from models.archive import Archive
-from models.order import Order, OrderItem
 from .auth import get_current_user_dependency
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import logging
+import traceback  # <-- Важливий імпорт для діагностики
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-# Декоратор для перевірки прав адміністратора
 def admin_required(current_user: User = Depends(get_current_user_dependency)):
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
     return current_user
+
+
+@router.get("/archives")
+async def get_archives_admin(
+        session: AsyncSession = Depends(get_session),
+        admin_user: User = Depends(admin_required)
+):
+    """Список архівів для адміністрування (з розширеним логуванням помилок)"""
+    logger.info("Admin request for /api/admin/archives received.")
+    try:
+        result = await session.execute(
+            select(Archive).order_by(Archive.created_at.desc())
+        )
+        archives = result.scalars().all()
+        logger.info(f"Successfully fetched {len(archives)} archives from DB.")
+
+        response_data = []
+        # Цей цикл перевірить кожен товар окремо
+        for archive in archives:
+            # Перевіряємо кожен товар на наявність полів
+            if not hasattr(archive, 'title'):
+                logger.error(f"Archive ID {archive.id} has no 'title' attribute!")
+                continue
+            if not hasattr(archive, 'image_paths'):
+                logger.error(f"Archive ID {archive.id} has no 'image_paths' attribute!")
+                continue
+
+            image_to_display = (archive.image_paths[0] if isinstance(archive.image_paths,
+                                                                     list) and archive.image_paths else "/images/placeholder.png")
+
+            response_data.append({
+                "id": archive.id, "code": archive.code, "title": archive.title or {},
+                "description": archive.description or {}, "price": float(archive.price or 0),
+                "discount_percent": int(archive.discount_percent or 0), "archive_type": archive.archive_type,
+                "image_path": image_to_display, "image_paths": archive.image_paths or [],
+                "file_path": archive.file_path, "file_size": archive.file_size,
+                "purchase_count": archive.purchase_count or 0, "view_count": archive.view_count or 0,
+                "created_at": archive.created_at.isoformat() if archive.created_at else None
+            })
+
+        logger.info(f"Successfully processed {len(response_data)} archives.")
+        return response_data
+
+    except Exception as e:
+        # ЦЕ НАЙВАЖЛИВІША ЧАСТИНА - вона виведе помилку в термінал
+        logger.error(f"!!! CRITICAL ERROR IN /api/admin/archives !!!", exc_info=True)
+        print("=" * 50)
+        print("!!! ДЕТАЛІ КРИТИЧНОЇ ПОМИЛКИ НА СЕРВЕРІ !!!")
+        traceback.print_exc()
+        print("=" * 50)
+        raise HTTPException(status_code=500, detail="Internal server error. Check server logs for traceback.")
 
 
 @router.get("/dashboard")
@@ -39,7 +93,7 @@ async def get_admin_dashboard(
     total_revenue = revenue_result.scalar_one_or_none() or 0
 
     # Статистика за останні 30 днів
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
 
     recent_users = await session.execute(
         select(func.count(User.id)).where(User.created_at >= thirty_days_ago)
@@ -57,13 +111,15 @@ async def get_admin_dashboard(
     )
 
     # Топ архіви за продажами
-    top_archives = await session.execute(
+    top_archives_result = await session.execute(
         select(Archive.title, Archive.code, func.count(OrderItem.id).label('sales_count'))
         .join(OrderItem, Archive.id == OrderItem.archive_id)
         .group_by(Archive.id, Archive.title, Archive.code)
         .order_by(func.count(OrderItem.id).desc())
         .limit(5)
     )
+    top_archives = top_archives_result.all()
+
 
     return {
         "total_stats": {
@@ -79,11 +135,11 @@ async def get_admin_dashboard(
         },
         "top_archives": [
             {
-                "title": row.title,
+                "title": row.title.get('ua', row.code) if row.title else row.code, # Безпечний доступ
                 "code": row.code,
                 "sales": row.sales_count
             }
-            for row in top_archives.all()
+            for row in top_archives
         ]
     }
 
@@ -177,10 +233,7 @@ async def get_orders_list(
     orders_data = []
     for order in orders:
         # Отримуємо користувача
-        user_result = await session.execute(
-            select(User).where(User.id == order.user_id)
-        )
-        user = user_result.scalar_one_or_none()
+        user = await session.get(User, order.user_id)
 
         # Отримуємо товари замовлення
         items_result = await session.execute(
@@ -192,7 +245,7 @@ async def get_orders_list(
         items = []
         for item, archive in items_result.all():
             items.append({
-                "archive_title": archive.title,
+                "archive_title": archive.title.get('ua', archive.code) if archive.title else archive.code,
                 "archive_code": archive.code,
                 "quantity": item.quantity,
                 "price": float(item.price)
@@ -223,43 +276,6 @@ async def get_orders_list(
         }
     }
 
-
-@router.get("/archives")
-async def get_archives_admin(
-        session: AsyncSession = Depends(get_session),
-        admin_user: User = Depends(admin_required)
-):
-    """Список архівів для адміністрування"""
-
-    result = await session.execute(
-        select(Archive).order_by(Archive.created_at.desc())
-    )
-    archives = result.scalars().all()
-
-    response_data = []
-    for archive in archives:
-        # Безпечно отримуємо перше зображення або стандартне
-        image_to_display = (archive.image_paths[0] if archive.image_paths else "/images/placeholder.png")
-
-        response_data.append({
-            "id": archive.id,
-            "code": archive.code,
-            "title": archive.title,
-            "description": archive.description,
-            "price": float(archive.price),
-            "discount_percent": archive.discount_percent,
-            "archive_type": archive.archive_type,
-            "image_path": image_to_display,
-            "image_paths": archive.image_paths,
-            "file_path": archive.file_path,
-            "file_size": archive.file_size,
-            "purchase_count": archive.purchase_count,
-            "view_count": archive.view_count,
-            "created_at": archive.created_at.isoformat() if archive.created_at else None
-        })
-    return response_data
-
-
 @router.post("/archives")
 async def create_archive(
         archive_data: dict,
@@ -268,6 +284,13 @@ async def create_archive(
 ):
     """Створити новий архів"""
     try:
+        # Перевірка, чи існує вже архів з таким кодом
+        existing_archive = await session.execute(
+            select(Archive).where(Archive.code == archive_data.get('code'))
+        )
+        if existing_archive.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail=f"Архів з кодом '{archive_data.get('code')}' вже існує.")
+
         new_archive = Archive(
             code=archive_data.get('code'),
             title=archive_data.get('title', {}),
@@ -291,6 +314,7 @@ async def create_archive(
         }
 
     except Exception as e:
+        await session.rollback()
         raise HTTPException(status_code=400, detail=f"Failed to create: {str(e)}")
 
 
@@ -303,32 +327,15 @@ async def update_archive(
 ):
     """Оновити архів"""
 
-    result = await session.execute(
-        select(Archive).where(Archive.id == archive_id)
-    )
-    archive = result.scalar_one_or_none()
-
+    archive = await session.get(Archive, archive_id)
     if not archive:
         raise HTTPException(status_code=404, detail="Archive not found")
 
     try:
         # Оновлюємо поля
-        if 'title' in archive_data:
-            archive.title = archive_data['title']
-        if 'description' in archive_data:
-            archive.description = archive_data['description']
-        if 'price' in archive_data:
-            archive.price = float(archive_data['price'])
-        if 'discount_percent' in archive_data:
-            archive.discount_percent = int(archive_data['discount_percent'])
-        if 'archive_type' in archive_data:
-            archive.archive_type = archive_data['archive_type']
-        if 'image_paths' in archive_data:
-            archive.image_paths = archive_data['image_paths']
-        if 'file_path' in archive_data:
-            archive.file_path = archive_data['file_path']
-        if 'file_size' in archive_data:
-            archive.file_size = archive_data['file_size']
+        for key, value in archive_data.items():
+            if hasattr(archive, key):
+                setattr(archive, key, value)
 
         await session.commit()
 
@@ -338,6 +345,7 @@ async def update_archive(
         }
 
     except Exception as e:
+        await session.rollback()
         raise HTTPException(status_code=400, detail=f"Failed to update archive: {str(e)}")
 
 
@@ -349,11 +357,7 @@ async def delete_archive(
 ):
     """Видалити архів"""
 
-    result = await session.execute(
-        select(Archive).where(Archive.id == archive_id)
-    )
-    archive = result.scalar_one_or_none()
-
+    archive = await session.get(Archive, archive_id)
     if not archive:
         raise HTTPException(status_code=404, detail="Archive not found")
 
@@ -367,4 +371,5 @@ async def delete_archive(
         }
 
     except Exception as e:
+        await session.rollback()
         raise HTTPException(status_code=400, detail=f"Failed to delete archive: {str(e)}")

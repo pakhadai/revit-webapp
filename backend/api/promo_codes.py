@@ -9,7 +9,7 @@ from models.order import Order
 from .auth import get_current_user_dependency
 from .admin import admin_required
 from typing import List, Optional, Dict
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -146,7 +146,7 @@ async def check_promo_code(
     if not promo_code.is_active:
         raise HTTPException(status_code=400, detail="Промокод неактивний")
 
-    if promo_code.expires_at and promo_code.expires_at < datetime.utcnow():
+    if promo_code.expires_at and promo_code.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Термін дії промокоду закінчився")
 
     if promo_code.max_uses and promo_code.current_uses >= promo_code.max_uses:

@@ -301,7 +301,11 @@
             if (!product) return;
             const existingItem = this.cart.find(item => item.id == productId);
             if (existingItem) existingItem.quantity++;
-            else this.cart.push({ ...product, quantity: 1 });
+            const finalPrice = product.discount_percent > 0
+                ? (product.price * (1 - product.discount_percent / 100))
+                : product.price;
+
+            this.cart.push({ ...product, quantity: 1, finalPrice: finalPrice });
             this.storage.set('cart', this.cart);
             this.updateCartBadge();
             this.updateProductButton(productId);
@@ -316,7 +320,7 @@
 
         async applyPromoCode() {
             const code = document.getElementById('promo-input').value;
-            const subtotal = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const subtotal = this.cart.reduce((sum, item) => sum + (item.finalPrice * item.quantity), 0);
             const promoMessage = document.getElementById('promo-message');
 
             try {

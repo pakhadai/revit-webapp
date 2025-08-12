@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import uuid
 
 from database import get_session
@@ -156,7 +156,7 @@ async def create_order(
     # У режимі розробки автоматично завершуємо замовлення
     if settings.DEV_MODE:
         new_order.status = "completed"
-        new_order.completed_at = datetime.utcnow()
+        new_order.completed_at = datetime.now(timezone.utc)
 
         # Оновлюємо VIP статус
         await update_vip_status_after_purchase(current_user.id, new_order, session)

@@ -1,6 +1,6 @@
 # backend/scheduler.py
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, and_
 from database import async_session
 from models.user import User
@@ -40,7 +40,7 @@ class NotificationScheduler:
         """Перевірити і відправити нагадування про закінчення підписки"""
         async with async_session() as session:
             # Знаходимо підписки що закінчуються через 3 дні
-            three_days_from_now = datetime.utcnow() + timedelta(days=3)
+            three_days_from_now = datetime.now(timezone.utc) + timedelta(days=3)
 
             result = await session.execute(
                 select(Subscription, User)

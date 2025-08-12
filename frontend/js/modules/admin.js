@@ -175,7 +175,21 @@ window.AdminModule = {
     // --- СТОРІНКА УПРАВЛІННЯ ТОВАРАМИ ---
     async showArchives(app) {
         try {
-            const archives = await app.api.get('/api/admin/archives');
+            // Отримуємо відповідь від API
+            const apiResponse = await app.api.get('/api/admin/archives');
+
+            // ✅ НОВИЙ ЗАХИСНИЙ КОД
+            // Перевіряємо, чи є відповідь масивом.
+            // Якщо ні, шукаємо масив всередині об'єкта (наприклад, в полі 'items' або 'archives').
+            const archives = Array.isArray(apiResponse)
+                ? apiResponse
+                : apiResponse.items || apiResponse.archives || [];
+
+            // Додаткова перевірка, що ми точно маємо масив перед використанням .map
+            if (!Array.isArray(archives)) {
+                console.error("Отримана відповідь від API не є масивом і не містить масиву 'items':", apiResponse);
+                throw new Error("Неправильний формат даних від сервера.");
+            }
 
             const content = document.getElementById('app-content');
             content.innerHTML = `
@@ -189,14 +203,19 @@ window.AdminModule = {
                     </div>
 
                     <div class="archives-list">
-                        ${archives.map(archive => `
+                        ${archives.map(archive => {
+                            // Перевіряємо, що 'title' існує, перш ніж звертатися до його властивостей
+                            const titleText = (archive.title && archive.title.ua) ? archive.title.ua : (archive.title && archive.title.en) ? archive.title.en : archive.code;
+                            const discountHtml = archive.discount_percent > 0 ? `<span style="font-size: 14px; color: red;">(-${archive.discount_percent}%)</span>` : '';
+
+                            return `
                             <div class="archive-card" style="background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <div style="flex: 1; display: flex; align-items: center; gap: 15px;">
 
                                         <img src="${archive.image_path}" alt="" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover;">
                                         <div>
-                                            <strong>${archive.title.ua || archive.title.en || archive.code}</strong>
+                                            <strong>${titleText}</strong>
                                             <div style="font-size: 14px; color: var(--tg-theme-hint-color);">Код: ${archive.code}</div>
                                             <div style="font-size: 12px; color: var(--tg-theme-hint-color); margin-top: 5px;">
                                                 Продажів: ${archive.purchase_count} • Переглядів: ${archive.view_count}
@@ -206,7 +225,7 @@ window.AdminModule = {
                                     <div style="text-align: right;">
                                         <div style="color: var(--primary-color); font-weight: bold; font-size: 18px; margin-bottom: 10px;">
                                             $${archive.price}
-                                            ${archive.discount_percent > 0 ? `<span style="font-size: 14px; color: red;">(-${archive.discount_percent}%)</span>` : ''}
+                                            ${discountHtml}
                                         </div>
                                         <div style="display: flex; gap: 5px;">
                                             <button onclick="AdminModule.showEditForm(window.app, ${archive.id})" style="padding: 6px 12px; background: orange; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Редагувати</button>
@@ -215,7 +234,7 @@ window.AdminModule = {
                                     </div>
                                 </div>
                             </div>
-                        `).join('')}
+                        `}).join('')}
                     </div>
                 </div>
             `;

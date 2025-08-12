@@ -11,7 +11,7 @@ from models.bonus import BonusTransaction, BonusTransactionType
 
 from config import settings
 from .auth import get_current_user_dependency
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict
 import pytz
 
@@ -46,7 +46,7 @@ async def get_subscription_status(
         }
 
     # Перевіряємо чи не закінчилася
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if subscription.end_date < now:
         subscription.status = SubscriptionStatus.EXPIRED
         await session.commit()
@@ -132,7 +132,7 @@ async def create_subscription(
         session.add(transaction)
 
     # Створюємо підписку
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     end_date = now + timedelta(days=30 * months)
 
     subscription = Subscription(

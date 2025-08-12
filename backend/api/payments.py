@@ -12,7 +12,7 @@ from models.notification import Notification
 from services.cryptomus import cryptomus_service
 from config import settings
 from .auth import get_current_user_dependency
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 import json
 import logging
@@ -123,7 +123,7 @@ async def create_payment(
                 "payment_url": result["payment_url"],
                 "amount": amount,
                 "currency": currency,
-                "expires_at": (datetime.utcnow() + timedelta(minutes=settings.PAYMENT_TIMEOUT_MINUTES)).isoformat()
+                "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=settings.PAYMENT_TIMEOUT_MINUTES)).isoformat()
             }
         else:
             new_payment.status = "failed"
@@ -188,7 +188,7 @@ async def cryptomus_webhook(
 
         # Якщо платіж успішний
         if new_status == "completed" and old_status != "completed":
-            payment.completed_at = datetime.utcnow()
+            payment.completed_at = datetime.now(timezone.utc)
 
             # Обробляємо залежно від типу
             metadata = payment.payment_data

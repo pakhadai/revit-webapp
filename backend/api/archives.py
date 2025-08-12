@@ -1,14 +1,14 @@
-# backend/api/archives.py - ВИПРАВЛЕНА ВЕРСІЯ З ПРАЦЮЮЧИМ ПОШУКОМ
+# backend/api/archives.py - ВИПРАВЛЕНА ВЕРСІЯ З УНІВЕРСАЛЬНИМ ПОШУКОМ
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, func
+from sqlalchemy import select, or_, func, text
 from typing import List, Dict, Any, Optional
 from database import get_session
 from models.archive import Archive
 from pydantic import BaseModel
 
 router = APIRouter()
-
 
 class ArchiveOut(BaseModel):
     id: int
@@ -18,14 +18,13 @@ class ArchiveOut(BaseModel):
     price: float
     discount_percent: int
     archive_type: str
-    image_path: str
+    image_paths: List[str] # Змінено з image_path на image_paths
 
     class Config:
         from_attributes = True
 
 
-# ОСНОВНИЙ ЕНДПОІНТ - має бути саме "/" а не "/archives"
-@router.get("/", response_model=List[ArchiveOut])
+@router.get("/paginated/list")
 async def get_archives_list(
         search: Optional[str] = Query(None, description="Пошуковий запит"),
         archive_type: Optional[str] = Query(None, description="Тип архіву: premium або free"),
@@ -40,17 +39,16 @@ async def get_archives_list(
     """
     query = select(Archive)
 
-    # Пошук по назві та коду (ВИПРАВЛЕНО ДЛЯ SQLITE)
+    # ✅ ВИПРАВЛЕНИЙ ПОШУК ДЛЯ SQLITE
     if search:
         search_term = f"%{search.lower()}%"
-        search_filter = or_(
+        query = query.where(or_(
             func.lower(Archive.code).like(search_term),
-            func.lower(Archive.title.op('->>')('$.ua')).like(search_term),
-            func.lower(Archive.title.op('->>')('$.en')).like(search_term),
-            func.lower(Archive.description.op('->>')('$.ua')).like(search_term),
-            func.lower(Archive.description.op('->>')('$.en')).like(search_term)
-        )
-        query = query.where(search_filter)
+            func.lower(func.json_extract(Archive.title, '$.ua')).like(search_term),
+            func.lower(func.json_extract(Archive.title, '$.en')).like(search_term),
+            func.lower(func.json_extract(Archive.description, '$.ua')).like(search_term),
+            func.lower(func.json_extract(Archive.description, '$.en')).like(search_term)
+        ))
 
     # Фільтр за типом
     if archive_type:
@@ -67,7 +65,8 @@ async def get_archives_list(
     if sort_by == "price":
         order_column = Archive.price
     elif sort_by == "title":
-        order_column = Archive.title.op('->>')('$.ua')
+        # ✅ ВИПРАВЛЕНЕ СОРТУВАННЯ ДЛЯ SQLITE
+        order_column = func.json_extract(Archive.title, '$.ua')
     elif sort_by == "created_at":
         order_column = Archive.created_at
 
@@ -78,4 +77,20 @@ async def get_archives_list(
 
     result = await session.execute(query)
     archives = result.scalars().all()
-    return archives
+
+    # ✅ Перетворюємо результат у відповідність до моделі Pydantic
+    response_archives = []
+    for archive in archives:
+        image_to_display = (archive.image_paths[0] if isinstance(archive.image_paths, list) and archive.image_paths else "/images/placeholder.png")
+        response_archives.append(ArchiveOut(
+            id=archive.id,
+            code=archive.code,
+            title=archive.title or {},
+            description=archive.description or {},
+            price=archive.price,
+            discount_percent=archive.discount_percent,
+            archive_type=archive.archive_type,
+            image_paths=[image_to_display] # Повертаємо список, як очікує модель
+        ))
+
+    return response_archives
