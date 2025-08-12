@@ -172,14 +172,36 @@ Object.assign(window.AdminModule, {
                 </select>
             </div>
 
-            <!-- URL зображення -->
-            <div class="form-group" style="margin-bottom: 30px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">URL зображення</label>
-                <input type="url" id="${prefix}image_path"
-                       value="${archive ? (archive.image_path || '') : ''}"
-                       placeholder="https://example.com/image.jpg або залиш порожнім"
-                       style="width: 100%; padding: 12px; border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 8px; font-size: 16px;">
-                <small style="color: var(--tg-theme-hint-color);">Якщо порожньо, буде використано стандартне зображення</small>
+            <!-- Завантаження зображень -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">📸 Зображення товару</label>
+                <div style="border: 2px dashed #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+                    <input type="file" id="images-upload" multiple accept="image/*" style="display: none;"
+                           onchange="AdminUploadModule.uploadImages(this)">
+                    <button type="button" onclick="document.getElementById('images-upload').click()"
+                            style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px;">
+                        📷 Вибрати фото
+                    </button>
+                    <div id="images-status" style="margin-top: 10px;"></div>
+                    <div id="images-preview" style="margin-top: 10px;"></div>
+                </div>
+                <input type="hidden" id="image_paths_hidden" value="[]">
+            </div>
+
+            <!-- Завантаження архіву -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">📦 Файл архіву</label>
+                <div style="border: 2px dashed #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+                    <input type="file" id="archive-upload" accept=".zip,.rar,.7z" style="display: none;"
+                           onchange="AdminUploadModule.uploadArchiveFile(this)">
+                    <button type="button" onclick="document.getElementById('archive-upload').click()"
+                            style="padding: 8px 16px; background: #2196F3; color: white; border: none; border-radius: 4px;">
+                        📁 Вибрати архів
+                    </button>
+                    <div id="archive-status" style="margin-top: 10px;"></div>
+                </div>
+                <input type="hidden" id="file_path_hidden" value="">
+                <input type="hidden" id="file_size_hidden" value="">
             </div>
         `;
     },
@@ -200,7 +222,9 @@ Object.assign(window.AdminModule, {
                 price: parseFloat(document.getElementById('price').value),
                 discount_percent: parseInt(document.getElementById('discount_percent').value) || 0,
                 archive_type: document.getElementById('archive_type').value,
-                image_path: document.getElementById('image_path').value.trim() || '/images/placeholder.png'
+                image_paths: JSON.parse(document.getElementById('image_paths_hidden').value || '[]'),
+                file_path: document.getElementById('file_path_hidden').value,
+                file_size: parseInt(document.getElementById('file_size_hidden').value || 0)
             };
 
             // Валідація

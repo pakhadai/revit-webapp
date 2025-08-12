@@ -81,6 +81,91 @@ async def get_archives_list(
     return archives
 
 
+
+@router.post("/", dependencies=[Depends(admin_required)])
+async def create_archive(
+        data: dict,
+        session: AsyncSession = Depends(get_session)
+):
+    """Створити новий архів"""
+    try:
+        # Обробка зображень
+        image_paths = data.get("image_paths", [])
+        if not image_paths and data.get("image_path"):
+            # Підтримка старого формату
+            image_paths = [data.get("image_path")]
+
+        new_archive = Archive(
+            title=data.get("title", {}),
+            description=data.get("description", {}),
+            price=float(data.get("price", 0)),
+            discount_percent=float(data.get("discount_percent", 0)),
+            category=data.get("category", "other"),
+            is_new=data.get("is_new", False),
+            is_popular=data.get("is_popular", False),
+            file_count=int(data.get("file_count", 0)),
+            total_size=data.get("total_size", "0 MB"),
+            software_version=data.get("software_version", ""),
+            tags=data.get("tags", []),
+            image_paths=image_paths,  # Новий формат
+            file_path=data.get("file_path"),  # Шлях до архіву
+            file_size=data.get("file_size"),  # Розмір файлу
+            download_url=data.get("download_url", "")  # Для сумісності
+        )
+
+        session.add(new_archive)
+        await session.commit()
+        await session.refresh(new_archive)
+
+        return {
+            "success": True,
+            "archive": {
+                "id": new_archive.id,
+                "title": new_archive.title
+            }
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Помилка створення архіву: {str(e)}")
+
+
+@router.put("/{archive_id}", dependencies=[Depends(admin_required)])
+async def update_archive(
+        archive_id: int,
+        data: dict,
+        session: AsyncSession = Depends(get_session)
+):
+    """Оновити архів"""
+    archive = await session.get(Archive, archive_id)
+    if not archive:
+        raise HTTPException(404, "Архів не знайдено")
+
+    # Оновлюємо поля
+    if "title" in data:
+        archive.title = data["title"]
+    if "description" in data:
+        archive.description = data["description"]
+    if "price" in data:
+        archive.price = float(data["price"])
+    if "discount_percent" in data:
+        archive.discount_percent = float(data["discount_percent"])
+    if "category" in data:
+        archive.category = data["category"]
+    if "is_new" in data:
+        archive.is_new = bool(data["is_new"])
+    if "is_popular" in data:
+        archive.is_popular = bool(data["is_popular"])
+    if "image_paths" in data:
+        archive.image_paths = data["image_paths"]
+    if "file_path" in data:
+        archive.file_path = data["file_path"]
+    if "file_size" in data:
+        archive.file_size = data["file_size"]
+
+    await session.commit()
+
+    return {"success": True, "message": "Архів оновлено"}
+
+
 @router.get("/{archive_id}", response_model=ArchiveOut)
 async def get_archive_details(archive_id: int, session: AsyncSession = Depends(get_session)):
     """

@@ -16,8 +16,9 @@ class Archive(Base):
     description = Column(JSON, nullable=False)
 
     # Files
-    image_path = Column(String(500))
-    file_path = Column(String(500))
+    image_paths = Column(JSON, default=list)  # Список шляхів до зображень
+    file_path = Column(String, nullable=True)  # Шлях до архіву
+    file_size = Column(Integer, nullable=True)  # Розмір файлу в байтах
 
     # Pricing
     price = Column(Float, default=0.0)

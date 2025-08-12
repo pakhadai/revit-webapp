@@ -4,6 +4,7 @@ import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from slowapi.errors import RateLimitExceeded
@@ -36,7 +37,8 @@ from api import (
     ratings_router,
     notifications_router,
     comments_router,
-    promo_codes_router  # <-- Тепер і цей роутер імпортовано правильно
+    promo_codes_router,
+    uploads_router
 )
 
 from config import settings
@@ -87,6 +89,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="RevitBot Web API", version="1.0.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.mount("/media", StaticFiles(directory="media"), name="media")
 
 # --- CORS MIDDLEWARE ---
 app.add_middleware(
@@ -115,7 +118,7 @@ app.include_router(ratings_router, prefix="/api/ratings", tags=["ratings"])
 app.include_router(notifications_router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(comments_router, prefix="/api/comments", tags=["comments"])
 app.include_router(promo_codes_router, prefix="/api/promo-codes", tags=["promo-codes"])
-
+app.include_router(uploads_router, prefix="/api/uploads", tags=["uploads"])
 
 # --- ТЕСТОВІ ЕНДПОІНТИ --- (код без змін)
 @app.get("/")

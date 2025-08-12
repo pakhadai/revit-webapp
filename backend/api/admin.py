@@ -261,8 +261,12 @@ async def create_archive(
         admin_user: User = Depends(admin_required)
 ):
     """Створити новий архів"""
-
     try:
+        # Підтримка нового формату зображень
+        image_paths = archive_data.get('image_paths', [])
+        if not image_paths and archive_data.get('image_path'):
+            image_paths = [archive_data.get('image_path')]
+
         new_archive = Archive(
             code=archive_data.get('code'),
             title=archive_data.get('title', {}),
@@ -270,7 +274,10 @@ async def create_archive(
             price=float(archive_data.get('price', 0)),
             discount_percent=int(archive_data.get('discount_percent', 0)),
             archive_type=archive_data.get('archive_type', 'premium'),
-            image_path=archive_data.get('image_path', '/images/placeholder.png')
+            image_path=archive_data.get('image_path', ''),  # Для сумісності
+            image_paths=image_paths,  # Новий формат
+            file_path=archive_data.get('file_path'),
+            file_size=archive_data.get('file_size')
         )
 
         session.add(new_archive)
@@ -284,7 +291,7 @@ async def create_archive(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to create archive: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to create: {str(e)}")
 
 
 @router.put("/archives/{archive_id}")
@@ -318,6 +325,12 @@ async def update_archive(
             archive.archive_type = archive_data['archive_type']
         if 'image_path' in archive_data:
             archive.image_path = archive_data['image_path']
+        if 'image_paths' in archive_data:
+            archive.image_paths = archive_data['image_paths']
+        if 'file_path' in archive_data:
+            archive.file_path = archive_data['file_path']
+        if 'file_size' in archive_data:
+            archive.file_size = archive_data['file_size']
 
         await session.commit()
 
