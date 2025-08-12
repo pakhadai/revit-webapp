@@ -246,6 +246,9 @@ async def get_archives_admin(
             "discount_percent": archive.discount_percent,
             "archive_type": archive.archive_type,
             "image_path": archive.image_path,
+            "image_paths": getattr(archive, 'image_paths', []),
+            "file_path": getattr(archive, 'file_path', None),
+            "file_size": getattr(archive, 'file_size', None),
             "purchase_count": archive.purchase_count,
             "view_count": archive.view_count,
             "created_at": archive.created_at.isoformat() if archive.created_at else None

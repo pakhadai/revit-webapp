@@ -224,7 +224,16 @@ window.AdminModule = {
                 </div>
             `;
         } catch (error) {
-            app.showError(`Помилка завантаження товарів: ${error.message}`);
+            console.error('Error details:', error);
+            // Показати детальну помилку
+            const content = document.getElementById('app-content');
+            content.innerHTML = `
+                <div style="padding: 20px; color: red;">
+                    <h3>Помилка завантаження товарів</h3>
+                    <p>${error.message}</p>
+                    <p>Перевірте консоль браузера для деталей</p>
+                </div>
+            `;
         }
     },
 

@@ -1,5 +1,5 @@
 # backend/main.py - ВИПРАВЛЕНА ВЕРСІЯ
-
+import os
 import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
@@ -89,7 +89,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="RevitBot Web API", version="1.0.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-app.mount("/media", StaticFiles(directory="media"), name="media")
+os.makedirs("media/archives", exist_ok=True)
+os.makedirs("media/images", exist_ok=True)
+
+# Монтуємо тільки якщо папка існує
+if os.path.exists("media"):
+    app.mount("/media", StaticFiles(directory="media"), name="media")
 
 # --- CORS MIDDLEWARE ---
 app.add_middleware(
