@@ -1,7 +1,9 @@
 # backend/models/promo_code.py
-from sqlalchemy import Column, Integer, String, Float, DateTime, Enum as SQLEnum
+
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Enum as SQLEnum
 from sqlalchemy.sql import func
 from database import Base
+from datetime import datetime
 import enum
 
 
@@ -22,14 +24,29 @@ class PromoCode(Base):
 
     # Обмеження
     expires_at = Column(DateTime, nullable=True)
-    max_uses = Column(Integer, nullable=True)  # Максимальна кількість використань
-    current_uses = Column(Integer, default=0)  # Поточна кількість використань
+    max_uses = Column(Integer, nullable=True)  # NULL = необмежено
+    current_uses = Column(Integer, default=0)
+    min_purchase_amount = Column(Float, default=0)  # Мінімальна сума замовлення
 
     # Статус
-    is_active = Column(Integer, default=1)
+    is_active = Column(Boolean, default=True)  # ← ВАЖЛИВО: Boolean, не Integer!
 
     # Timestamps
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())  # Додав для повноти
 
     def __repr__(self):
         return f"<PromoCode {self.code}>"
+
+    def is_valid(self):
+        """Перевірка чи промокод дійсний"""
+        if not self.is_active:
+            return False
+
+        if self.expires_at and self.expires_at < datetime.utcnow():
+            return False
+
+        if self.max_uses and self.current_uses >= self.max_uses:
+            return False
+
+        return True
