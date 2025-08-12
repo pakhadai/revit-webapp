@@ -3,15 +3,20 @@
   "version": "1.0.0",
   "description": "Telegram Web App for Revit Families",
   "scripts": {
-    "dev:frontend": "python -m http.server 8000 --directory frontend",
+    "dev:frontend": "serve -s frontend -l 8000",
     "dev:backend": "cd backend && uvicorn main:app --reload --port 8001",
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "start": "npm run dev"
   },
-  "keywords": ["telegram", "webapp", "revit"],
+  "keywords": [
+    "telegram",
+    "webapp",
+    "revit"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "concurrently": "^7.6.0"
+    "concurrently": "^7.6.0",
+    "serve": "^14.2.0"
   }
 }

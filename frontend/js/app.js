@@ -46,11 +46,33 @@
 
                 if (this.user?.isAdmin) await this.preloadAdminModules();
 
-                await this.loadPage('home');
+                const initialPage = window.location.pathname.replace('/', '') || 'home';
+                await this.navigateTo(initialPage, true); // true - щоб не додавати в історію
+
+                // <-- ЗМІНА: Обробка кнопок "назад/вперед" у браузері
+                window.onpopstate = (event) => {
+                    const page = event.state?.page || 'home';
+                    this.loadPage(page);
+                    this.updateActiveNav(page);
+                };
+
                 this.updateCartBadge();
             } catch (error) {
                 console.error('❌ Init error:', error);
                 this.showError('Failed to initialize app');
+            }
+        }
+
+        async navigateTo(page, replace = false) {
+            await this.loadPage(page);
+            this.updateActiveNav(page);
+
+            // Оновлюємо URL в адресному рядку
+            const path = `/${page}`;
+            if (replace) {
+                history.replaceState({ page: page }, '', path);
+            } else {
+                history.pushState({ page: page }, '', path);
             }
         }
 
@@ -63,22 +85,13 @@
                 indicator.innerHTML = `<div class="offline-dot"></div> Офлайн`;
                 document.body.appendChild(indicator);
             }
-
             const showIndicator = () => indicator.classList.add('visible');
             const hideIndicator = () => indicator.classList.remove('visible');
-
-            // Слухаємо стандартні події браузера (для миттєвої реакції)
             window.addEventListener('online', hideIndicator);
             window.addEventListener('offline', showIndicator);
-
-            // Слухаємо наші власні, надійніші події з Api
             window.addEventListener('connection-lost', showIndicator);
             window.addEventListener('connection-restored', hideIndicator);
-
-            // Початкова перевірка
-            if (!navigator.onLine) {
-                showIndicator();
-            }
+            if (!navigator.onLine) showIndicator();
         }
 
         async preloadAdminModules() {
@@ -128,7 +141,7 @@
                     case 'cart': html = this.getCartPage(); break;
                     case 'profile': html = await this.getProfilePage(); break;
                     case 'admin': html = await this.getAdminPage(); break;
-                    default: html = `<h2>404 Not Found</h2>`;
+                    default: html = `<h2>404 Not Found</h2><p>Сторінку '/${page}' не знайдено.</p>`;
                 }
             } catch (error) {
                 html = this.showError(`Failed to load page: ${page}. ${error.message}`);
@@ -384,11 +397,19 @@
 
         setupUI() {
             document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', (e) => {
-                e.preventDefault();
-                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-                item.classList.add('active');
-                this.loadPage(item.dataset.page);
+                e.preventDefault(); // Запобігаємо стандартній поведінці посилання
+                const page = item.dataset.page;
+                this.navigateTo(page); // <-- ЗМІНА: Використовуємо нову функцію
             }));
+        }
+
+        // <-- НОВА ДОПОМІЖНА ФУНКЦІЯ
+        updateActiveNav(page) {
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            const activeItem = document.querySelector(`.nav-item[data-page="${page}"]`);
+            if (activeItem) {
+                activeItem.classList.add('active');
+            }
         }
 
         showError(message) {
