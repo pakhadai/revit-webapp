@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Діагностика RevitBot</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-block {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .success { border-left-color: #28a745; }
+        .error { border-left-color: #dc3545; }
+        .warning { border-left-color: #ffc107; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Діагностика RevitBot</h1>
+
+    <div class="test-block">
+        <h3>1. Перевірка Backend API</h3>
+        <button onclick="testBackend()">Тест Backend</button>
+        <div id="backend-result"></div>
+    </div>
+
+    <div class="test-block">
+        <h3>2. Перевірка товарів</h3>
+        <button onclick="testArchives()">Тест /api/archives</button>
+        <div id="archives-result"></div>
+    </div>
+
+    <div class="test-block">
+        <h3>3. Перевірка Admin API</h3>
+        <button onclick="testAdminArchives()">Тест /api/admin/archives</button>
+        <div id="admin-result"></div>
+    </div>
+
+    <div class="test-block">
+        <h3>4. Перевірка Frontend</h3>
+        <button onclick="testFrontend()">Тест Frontend</button>
+        <div id="frontend-result"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8001';
+        const FRONTEND_URL = 'http://localhost:8000';
+
+        async function testBackend() {
+            const resultDiv = document.getElementById('backend-result');
+            try {
+                const response = await fetch(`${API_URL}/api/health`);
+                if (response.ok) {
+                    resultDiv.innerHTML = '<p style="color: green;">✅ Backend працює!</p>';
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">❌ Backend відповів з помилкою: ${response.status}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">❌ Backend недоступний: ${error.message}</p>
+                <p>Перевірте чи запущено: <code>cd backend && uvicorn main:app --reload --port 8001</code></p>`;
+            }
+        }
+
+        async function testArchives() {
+            const resultDiv = document.getElementById('archives-result');
+            try {
+                const response = await fetch(`${API_URL}/api/archives/paginated/list`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <p style="color: green;">✅ API товарів працює!</p>
+                        <p>Знайдено товарів: ${Array.isArray(data) ? data.length : 'невідомо'}</p>
+                        <pre>${JSON.stringify(data, null, 2).slice(0, 500)}...</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">❌ Помилка API: ${response.status}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">❌ Помилка запиту: ${error.message}</p>`;
+            }
+        }
+
+        async function testAdminArchives() {
+            const resultDiv = document.getElementById('admin-result');
+            const token = localStorage.getItem('token') || prompt('Введіть admin token:');
+
+            try {
+                const response = await fetch(`${API_URL}/api/admin/archives`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <p style="color: green;">✅ Admin API працює!</p>
+                        <p>Товарів в адмін-панелі: ${Array.isArray(data) ? data.length : 'невідомо'}</p>
+                        <pre>${JSON.stringify(data, null, 2).slice(0, 500)}...</pre>
+                    `;
+                } else if (response.status === 401) {
+                    resultDiv.innerHTML = `<p style="color: orange;">⚠️ Потрібна авторизація. Токен недійсний або відсутній.</p>`;
+                } else if (response.status === 403) {
+                    resultDiv.innerHTML = `<p style="color: orange;">⚠️ Потрібні права адміністратора.</p>`;
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">❌ Помилка: ${response.status}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">❌ Помилка запиту: ${error.message}</p>`;
+            }
+        }
+
+        async function testFrontend() {
+            const resultDiv = document.getElementById('frontend-result');
+            try {
+                const response = await fetch(FRONTEND_URL);
+                if (response.ok) {
+                    resultDiv.innerHTML = '<p style="color: green;">✅ Frontend сервер працює!</p>';
+
+                    // Перевіряємо наявність файлів
+                    const files = [
+                        '/js/app.js',
+                        '/js/modules/admin.js',
+                        '/js/modules/admin-forms.js',
+                        '/js/modules/catalog.js'
+                    ];
+
+                    for (const file of files) {
+                        const fileResponse = await fetch(FRONTEND_URL + file);
+                        if (fileResponse.ok) {
+                            resultDiv.innerHTML += `<p style="color: green;">✅ ${file} - OK</p>`;
+                        } else {
+                            resultDiv.innerHTML += `<p style="color: red;">❌ ${file} - не знайдено</p>`;
+                        }
+                    }
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">❌ Frontend недоступний: ${response.status}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">❌ Frontend недоступний: ${error.message}</p>
+                <p>Перевірте чи запущено: <code>cd frontend && python -m http.server 8000</code></p>`;
+            }
+        }
+
+        // Автоматично запускаємо всі тести
+        window.onload = () => {
+            testBackend();
+            testArchives();
+            testFrontend();
+        };
+    </script>
+</body>
+</html>

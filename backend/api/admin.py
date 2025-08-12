@@ -28,51 +28,52 @@ async def get_archives_admin(
         session: AsyncSession = Depends(get_session),
         admin_user: User = Depends(admin_required)
 ):
-    """Список архівів для адміністрування (з розширеним логуванням помилок)"""
-    logger.info("Admin request for /api/admin/archives received.")
+    """Отримати список всіх архівів для адмін-панелі"""
+
     try:
         result = await session.execute(
             select(Archive).order_by(Archive.created_at.desc())
         )
         archives = result.scalars().all()
-        logger.info(f"Successfully fetched {len(archives)} archives from DB.")
 
+        # Формуємо відповідь
         response_data = []
-        # Цей цикл перевірить кожен товар окремо
         for archive in archives:
-            # Перевіряємо кожен товар на наявність полів
-            if not hasattr(archive, 'title'):
-                logger.error(f"Archive ID {archive.id} has no 'title' attribute!")
-                continue
-            if not hasattr(archive, 'image_paths'):
-                logger.error(f"Archive ID {archive.id} has no 'image_paths' attribute!")
-                continue
+            # Безпечне отримання першого зображення
+            image_path = None
+            if archive.image_paths:
+                if isinstance(archive.image_paths, list) and len(archive.image_paths) > 0:
+                    image_path = archive.image_paths[0]
+                elif isinstance(archive.image_paths, str):
+                    image_path = archive.image_paths
 
-            image_to_display = (archive.image_paths[0] if isinstance(archive.image_paths,
-                                                                     list) and archive.image_paths else "/images/placeholder.png")
+            if not image_path:
+                image_path = "/static/images/placeholder.png"
 
             response_data.append({
-                "id": archive.id, "code": archive.code, "title": archive.title or {},
-                "description": archive.description or {}, "price": float(archive.price or 0),
-                "discount_percent": int(archive.discount_percent or 0), "archive_type": archive.archive_type,
-                "image_path": image_to_display, "image_paths": archive.image_paths or [],
-                "file_path": archive.file_path, "file_size": archive.file_size,
-                "purchase_count": archive.purchase_count or 0, "view_count": archive.view_count or 0,
+                "id": archive.id,
+                "code": archive.code,
+                "title": archive.title if archive.title else {},
+                "description": archive.description if archive.description else {},
+                "price": float(archive.price) if archive.price else 0,
+                "discount_percent": archive.discount_percent if archive.discount_percent else 0,
+                "archive_type": archive.archive_type,
+                "image_path": image_path,  # Одне зображення для картки
+                "image_paths": archive.image_paths if archive.image_paths else [],
+                "file_path": archive.file_path,
+                "file_size": archive.file_size,
+                "purchase_count": archive.purchase_count if archive.purchase_count else 0,
+                "view_count": archive.view_count if archive.view_count else 0,
+                "average_rating": archive.average_rating if hasattr(archive, 'average_rating') else 0,
+                "ratings_count": archive.ratings_count if hasattr(archive, 'ratings_count') else 0,
                 "created_at": archive.created_at.isoformat() if archive.created_at else None
             })
 
-        logger.info(f"Successfully processed {len(response_data)} archives.")
         return response_data
 
     except Exception as e:
-        # ЦЕ НАЙВАЖЛИВІША ЧАСТИНА - вона виведе помилку в термінал
-        logger.error(f"!!! CRITICAL ERROR IN /api/admin/archives !!!", exc_info=True)
-        print("=" * 50)
-        print("!!! ДЕТАЛІ КРИТИЧНОЇ ПОМИЛКИ НА СЕРВЕРІ !!!")
-        traceback.print_exc()
-        print("=" * 50)
-        raise HTTPException(status_code=500, detail="Internal server error. Check server logs for traceback.")
-
+        logger.error(f"Error loading archives: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/dashboard")
 async def get_admin_dashboard(

@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 # Функція для перевірки доступу до архіву
-async def check_archive_access(user_id: int, archive_id: int, session: AsyncSession) -> bool:
+async def check_user_access(user_id: int, archive_id: int, session: AsyncSession) -> bool:
     # 1. Перевіряємо, чи архів безкоштовний
     archive = await session.get(Archive, archive_id)
     if not archive:

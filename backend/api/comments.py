@@ -36,11 +36,6 @@ async def check_archive_access(user_id: int, archive_id: int, session: AsyncSess
     if purchase.scalar_one_or_none():
         return True
 
-    # 3. Перевіряємо підписку
-    user = await session.get(User, user_id)
-    if user and user.has_active_subscription:
-        return True
-
     # 4. Перевіряємо підписку через SubscriptionArchive
     subscription = await session.execute(
         select(SubscriptionArchive).where(
