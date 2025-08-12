@@ -184,7 +184,7 @@ window.AdminModule = {
                         <h2>📦 Управління товарами (${archives.length})</h2>
                         <div>
                             <button onclick="AdminModule.showCreateForm(window.app)" style="padding: 8px 16px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; margin-right: 10px;">+ Додати товар</button>
-                            <button onclick="window.app.loadPage('admin')" style="padding: 8px 16px; background: var(--tg-theme-secondary-bg-color); border: none; border-radius: 6px; cursor: pointer;">← Назад</button>
+                            <button onclick="window.app.navigateTo('admin')" style="padding: 8px 16px; background: var(--tg-theme-secondary-bg-color); border: none; border-radius: 6px; cursor: pointer;">← Назад</button>
                         </div>
                     </div>
 
@@ -192,19 +192,15 @@ window.AdminModule = {
                         ${archives.map(archive => `
                             <div class="archive-card" style="background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="flex: 1;">
-                                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                                            <div style="font-size: 32px; margin-right: 15px;">${archive.archive_type === 'premium' ? '💎' : '📦'}</div>
-                                            <div>
-                                                <strong>${archive.title.ua || archive.title.en || archive.code}</strong>
-                                                <div style="font-size: 14px; color: var(--tg-theme-hint-color);">Код: ${archive.code}</div>
+                                    <div style="flex: 1; display: flex; align-items: center; gap: 15px;">
+
+                                        <img src="${archive.image_path}" alt="" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover;">
+                                        <div>
+                                            <strong>${archive.title.ua || archive.title.en || archive.code}</strong>
+                                            <div style="font-size: 14px; color: var(--tg-theme-hint-color);">Код: ${archive.code}</div>
+                                            <div style="font-size: 12px; color: var(--tg-theme-hint-color); margin-top: 5px;">
+                                                Продажів: ${archive.purchase_count} • Переглядів: ${archive.view_count}
                                             </div>
-                                        </div>
-                                        <div style="font-size: 14px; color: var(--tg-theme-hint-color); margin-bottom: 10px;">
-                                            ${archive.description.ua || archive.description.en || 'Немає опису'}
-                                        </div>
-                                        <div style="font-size: 12px; color: var(--tg-theme-hint-color);">
-                                            Продажів: ${archive.purchase_count} • Переглядів: ${archive.view_count}
                                         </div>
                                     </div>
                                     <div style="text-align: right;">
@@ -224,16 +220,10 @@ window.AdminModule = {
                 </div>
             `;
         } catch (error) {
-            console.error('Error details:', error);
-            // Показати детальну помилку
+            // Зберігаємо оригінальну помилку для налагодження
+            console.error("Помилка завантаження товарів:", error);
             const content = document.getElementById('app-content');
-            content.innerHTML = `
-                <div style="padding: 20px; color: red;">
-                    <h3>Помилка завантаження товарів</h3>
-                    <p>${error.message}</p>
-                    <p>Перевірте консоль браузера для деталей</p>
-                </div>
-            `;
+            content.innerHTML = app.showError(`Помилка завантаження товарів<br><small>${error.message}</small><br>Перевірте консоль браузера для деталей`);
         }
     },
 

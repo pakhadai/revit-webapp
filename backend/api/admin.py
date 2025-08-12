@@ -1,13 +1,13 @@
-# backend/api/admin.py
+# backend/api/admin.py - ПОВНІСТЮ ВИПРАВЛЕНА ВЕРСІЯ
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, text
+from sqlalchemy import select, func
 from database import get_session
 from models.user import User
 from models.archive import Archive
 from models.order import Order, OrderItem
 from .auth import get_current_user_dependency
-from typing import Dict, List
 from datetime import datetime, timedelta
 
 router = APIRouter()
@@ -236,8 +236,12 @@ async def get_archives_admin(
     )
     archives = result.scalars().all()
 
-    return [
-        {
+    response_data = []
+    for archive in archives:
+        # Безпечно отримуємо перше зображення або стандартне
+        image_to_display = (archive.image_paths[0] if archive.image_paths else "/images/placeholder.png")
+
+        response_data.append({
             "id": archive.id,
             "code": archive.code,
             "title": archive.title,
@@ -245,16 +249,15 @@ async def get_archives_admin(
             "price": float(archive.price),
             "discount_percent": archive.discount_percent,
             "archive_type": archive.archive_type,
-            "image_path": archive.image_path,
-            "image_paths": getattr(archive, 'image_paths', []),
-            "file_path": getattr(archive, 'file_path', None),
-            "file_size": getattr(archive, 'file_size', None),
+            "image_path": image_to_display,
+            "image_paths": archive.image_paths,
+            "file_path": archive.file_path,
+            "file_size": archive.file_size,
             "purchase_count": archive.purchase_count,
             "view_count": archive.view_count,
             "created_at": archive.created_at.isoformat() if archive.created_at else None
-        }
-        for archive in archives
-    ]
+        })
+    return response_data
 
 
 @router.post("/archives")
@@ -265,11 +268,6 @@ async def create_archive(
 ):
     """Створити новий архів"""
     try:
-        # Підтримка нового формату зображень
-        image_paths = archive_data.get('image_paths', [])
-        if not image_paths and archive_data.get('image_path'):
-            image_paths = [archive_data.get('image_path')]
-
         new_archive = Archive(
             code=archive_data.get('code'),
             title=archive_data.get('title', {}),
@@ -277,8 +275,7 @@ async def create_archive(
             price=float(archive_data.get('price', 0)),
             discount_percent=int(archive_data.get('discount_percent', 0)),
             archive_type=archive_data.get('archive_type', 'premium'),
-            image_path=archive_data.get('image_path', ''),  # Для сумісності
-            image_paths=image_paths,  # Новий формат
+            image_paths=archive_data.get('image_paths', []),
             file_path=archive_data.get('file_path'),
             file_size=archive_data.get('file_size')
         )
@@ -326,8 +323,6 @@ async def update_archive(
             archive.discount_percent = int(archive_data['discount_percent'])
         if 'archive_type' in archive_data:
             archive.archive_type = archive_data['archive_type']
-        if 'image_path' in archive_data:
-            archive.image_path = archive_data['image_path']
         if 'image_paths' in archive_data:
             archive.image_paths = archive_data['image_paths']
         if 'file_path' in archive_data:

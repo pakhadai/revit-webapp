@@ -1,4 +1,3 @@
-# Цей файл зберігає наші тестові дані
 mock_archives_list = [
     {
         "id": 1,
@@ -8,7 +7,7 @@ mock_archives_list = [
         "price": 9.99,
         "discount_percent": 10,
         "archive_type": "premium",
-        "image_path": "/images/placeholder.png"
+        "image_paths": ["/images/placeholder.png"] # <-- ВИПРАВЛЕНО
     },
     {
         "id": 2,
@@ -18,7 +17,7 @@ mock_archives_list = [
         "price": 14.99,
         "discount_percent": 0,
         "archive_type": "premium",
-        "image_path": "/images/placeholder.png"
+        "image_paths": ["/images/placeholder.png"]
     },
     {
         "id": 3,
@@ -28,6 +27,6 @@ mock_archives_list = [
         "price": 12.99,
         "discount_percent": 0,
         "archive_type": "free",
-        "image_path": "/images/placeholder.png"
+        "image_paths": ["/images/placeholder.png"]
     }
 ]
