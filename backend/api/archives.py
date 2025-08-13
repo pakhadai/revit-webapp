@@ -26,6 +26,7 @@ class ArchiveOut(BaseModel):
 
 @router.get("/paginated/list")
 async def get_archives_list(
+        page: int = 1,
         search: Optional[str] = Query(None, description="Пошуковий запит"),
         archive_type: Optional[str] = Query(None, description="Тип архіву: premium або free"),
         min_price: Optional[float] = Query(None, description="Мінімальна ціна"),
@@ -93,4 +94,9 @@ async def get_archives_list(
             image_paths=[image_to_display] # Повертаємо список, як очікує модель
         ))
 
-    return response_archives
+    return {
+        "items": response_archives,
+        "page": page,  # <-- ВИКОРИСТОВУЙТЕ ПАРАМЕТР "page" ТУТ
+        "has_more": len(response_archives) >= 12,  # Проста логіка
+        "total": len(response_archives)  # Це тимчасово, потім тут буде загальна кількість
+    }

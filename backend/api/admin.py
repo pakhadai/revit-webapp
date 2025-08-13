@@ -48,7 +48,7 @@ async def get_archives_admin(
                     image_path = archive.image_paths
 
             if not image_path:
-                image_path = "/static/images/placeholder.png"
+                image_path = "images/icons/icon-192x192.png"
 
             response_data.append({
                 "id": archive.id,
@@ -333,12 +333,25 @@ async def update_archive(
         raise HTTPException(status_code=404, detail="Archive not found")
 
     try:
-        # Оновлюємо поля
-        for key, value in archive_data.items():
-            if hasattr(archive, key):
-                setattr(archive, key, value)
+        # Явно оновлюємо кожне поле
+        archive.title = archive_data.get('title', archive.title)
+        archive.description = archive_data.get('description', archive.description)
+        archive.price = float(archive_data.get('price', archive.price))
+        archive.discount_percent = int(archive_data.get('discount_percent', archive.discount_percent))
+        archive.archive_type = archive_data.get('archive_type', archive.archive_type)
+
+        # Переприсвоюємо список, щоб база даних помітила зміну
+        if 'image_paths' in archive_data:
+            archive.image_paths = archive_data['image_paths']
+
+        if 'file_path' in archive_data:
+            archive.file_path = archive_data['file_path']
+
+        if 'file_size' in archive_data:
+            archive.file_size = archive_data['file_size']
 
         await session.commit()
+        await session.refresh(archive)
 
         return {
             "success": True,

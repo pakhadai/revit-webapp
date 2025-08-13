@@ -86,7 +86,9 @@ async def create_order(
         current_user: User = Depends(get_current_user_dependency)
 ):
     items = data.get("items", [])
-    promo_code_str = data.get("promo_code", "").upper().strip()  # ✅ Отримуємо промокод
+    # Виправлення для промокоду
+    promo_code_value = data.get("promo_code")
+    promo_code_str = promo_code_value.upper().strip() if promo_code_value else None
 
     if not items:
         raise HTTPException(status_code=400, detail="Cart is empty")
@@ -100,7 +102,6 @@ async def create_order(
             raise HTTPException(status_code=404, detail=f"Archive with id {item_data.get('id')} not found")
 
         price = archive.price
-        # Враховуємо знижку на товар, якщо вона є
         if archive.discount_percent > 0:
             price = price * (1 - archive.discount_percent / 100)
 
@@ -108,22 +109,21 @@ async def create_order(
         subtotal += price * quantity
         order_items_to_create.append({"archive_id": archive.id, "quantity": quantity, "price": price})
 
-    # ✅ ЛОГІКА ПРОМОКОДУ
     discount = 0
     final_total = subtotal
     if promo_code_str:
         result = await session.execute(select(PromoCode).where(PromoCode.code == promo_code_str))
         promo_code = result.scalar_one_or_none()
-        if promo_code and promo_code.is_active:  # Перевіряємо ще раз
+        if promo_code and promo_code.is_valid():
             if promo_code.discount_type == DiscountType.PERCENTAGE:
                 discount = subtotal * (promo_code.value / 100)
             elif promo_code.discount_type == DiscountType.FIXED_AMOUNT:
                 discount = promo_code.value
 
             final_total = max(0, subtotal - discount)
-            promo_code.current_uses += 1  # Збільшуємо лічильник
+            promo_code.current_uses += 1
         else:
-            promo_code_str = None  # Якщо код недійсний, не зберігаємо його
+            promo_code_str = None
 
     new_order = Order(
         order_id=str(uuid.uuid4()),
@@ -133,16 +133,12 @@ async def create_order(
         total=round(final_total, 2),
         promo_code=promo_code_str
     )
-
     session.add(new_order)
     await session.flush()
 
-    # Додаємо товари до замовлення
     for item in order_items_to_create:
         order_item = OrderItem(order_id=new_order.id, **item)
         session.add(order_item)
-
-        # Створюємо повідомлення з проханням оцінити товар
         archive = await session.get(Archive, item["archive_id"])
         if archive:
             notification = Notification(
@@ -153,32 +149,23 @@ async def create_order(
             )
             session.add(notification)
 
-    # У режимі розробки автоматично завершуємо замовлення
     if settings.DEV_MODE:
         new_order.status = "completed"
         new_order.completed_at = datetime.now(timezone.utc)
-
-        # Оновлюємо VIP статус
         await update_vip_status_after_purchase(current_user.id, new_order, session)
-
-        # Надаємо доступ до товарів
         await grant_user_access_to_purchased_items(new_order.id, current_user.id, session)
 
     await session.commit()
 
-    # НОВИЙ КОД: Відправляємо push-повідомлення через Telegram якщо замовлення завершено
     if new_order.status == "completed":
         try:
-            # Відправляємо повідомлення в Telegram
             await telegram_service.send_order_notification(
-                user_id=current_user.user_id,  # Це Telegram ID користувача
-                order_id=new_order.order_id[:8],  # Короткий ID для зручності
-                total=total_price,
-                lang=current_user.language_code  # Мова користувача
+                user_id=current_user.user_id,
+                order_id=new_order.order_id[:8],
+                total=final_total,  # ВИПРАВЛЕНО
+                lang=current_user.language_code
             )
         except Exception as e:
-            # Якщо не вдалося відправити повідомлення, не зупиняємо процес
-            # Просто логуємо помилку
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"Failed to send Telegram notification: {str(e)}")
@@ -186,6 +173,6 @@ async def create_order(
     return {
         "success": True,
         "order_id": new_order.order_id,
-        "total": total_price,
+        "total": final_total,  # ВИПРАВЛЕНО
         "status": new_order.status,
     }

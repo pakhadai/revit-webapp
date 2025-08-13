@@ -279,6 +279,21 @@ Object.assign(window.AdminModule, {
         }
     },
 
+    async updateArchive(app, archiveId) {
+        try {
+            const formData = this._getFormData('edit_'); // Використовуємо префікс 'edit_'
+            const response = await app.api.put(`/api/admin/archives/${archiveId}`, formData);
+
+            if (response.success) {
+                alert('✅ Товар успішно оновлено!');
+                this.showArchives(app);
+            }
+        } catch (error) {
+            console.error('Update archive error:', error);
+            alert('❌ Помилка оновлення товару: ' + error.message);
+        }
+    },
+
     // --- ВИДАЛЕННЯ ТОВАРУ ---
     async deleteArchive(app, id) {
         try {

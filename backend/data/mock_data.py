@@ -1,3 +1,5 @@
+# backend/data/mock_data.py
+
 mock_archives_list = [
     {
         "id": 1,
@@ -7,7 +9,7 @@ mock_archives_list = [
         "price": 9.99,
         "discount_percent": 10,
         "archive_type": "premium",
-        "image_paths": ["/images/placeholder.png"] # <-- ВИПРАВЛЕНО
+        "image_paths": ["images/icons/icon-192x192.png"] # <-- ВИПРАВЛЕНО
     },
     {
         "id": 2,
@@ -17,7 +19,7 @@ mock_archives_list = [
         "price": 14.99,
         "discount_percent": 0,
         "archive_type": "premium",
-        "image_paths": ["/images/placeholder.png"]
+        "image_paths": ["images/icons/icon-192x192.png"] # <-- ВИПРАВЛЕНО
     },
     {
         "id": 3,
@@ -27,6 +29,6 @@ mock_archives_list = [
         "price": 12.99,
         "discount_percent": 0,
         "archive_type": "free",
-        "image_paths": ["/images/placeholder.png"]
+        "image_paths": ["images/icons/icon-192x192.png"] # <-- ВИПРАВЛЕНО
     }
 ]

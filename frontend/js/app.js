@@ -96,7 +96,7 @@
 
         async preloadAdminModules() {
             await this.loadScript('js/modules/admin.js');
-            await this.loadScript('js/modules/admin-forms.js');
+            await this.loadScript('js/modules/admin-forms.js'); // Додайте цей рядок
             await this.loadScript('js/modules/admin-promo-codes.js');
         }
 
@@ -267,7 +267,12 @@
 
         async getAdminPage() {
             if (!this.user?.isAdmin) return `<div class="p-3"><h3>Доступ заборонено</h3></div>`;
-            if (!window.AdminModule) await this.loadScript('js/modules/admin.js');
+
+            // Завантажуємо ОБИДВА скрипти ПЕРЕД тим, як щось робити
+            await this.loadScript('js/modules/admin.js');
+            await this.loadScript('js/modules/admin-forms.js');
+
+            // Тепер, коли обидва файли завантажені, можна викликати функцію
             return await window.AdminModule.getDashboard(this);
         }
 

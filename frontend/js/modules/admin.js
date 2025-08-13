@@ -173,6 +173,7 @@ window.AdminModule = {
     },
 
     // --- СТОРІНКА УПРАВЛІННЯ ТОВАРАМИ ---
+    // --- СТОРІНКА УПРАВЛІННЯ ТОВАРАМИ ---
     async showArchives(app) {
         const content = document.getElementById('app-content');
         content.innerHTML = `<div class="loader-container"><div class="loader"></div></div>`;
@@ -180,7 +181,6 @@ window.AdminModule = {
         try {
             const archives = await app.api.get('/api/admin/archives');
 
-            // Перевіряємо чи отримали масив
             if (!Array.isArray(archives)) {
                 console.error('Неправильний формат даних:', archives);
                 content.innerHTML = `
@@ -200,7 +200,7 @@ window.AdminModule = {
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h2>📦 Товари (${archives.length})</h2>
                         <div>
-                            <button onclick="window.AdminFormsModule.showCreateForm(window.app)"
+                            <button onclick="window.AdminModule.showCreateForm(window.app)"
                                     style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer;">
                                 ➕ Додати товар
                             </button>
@@ -214,7 +214,7 @@ window.AdminModule = {
                     ${archives.length === 0 ? `
                         <div style="text-align: center; padding: 40px; background: var(--tg-theme-secondary-bg-color); border-radius: 12px;">
                             <p style="font-size: 18px; margin-bottom: 20px;">Товарів поки немає</p>
-                            <button onclick="window.AdminFormsModule.showCreateForm(window.app)"
+                            <button onclick="window.AdminModule.showCreateForm(window.app)"
                                     style="padding: 12px 24px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer;">
                                 Додати перший товар
                             </button>
@@ -240,7 +240,7 @@ window.AdminModule = {
                                                 $${price}
                                             </p>
                                             <div style="display: flex; gap: 10px;">
-                                                <button onclick="window.AdminFormsModule.showEditForm(window.app, ${archive.id})"
+                                                <button onclick="window.AdminModule.showEditForm(window.app, ${archive.id})"
                                                         style="flex: 1; padding: 8px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer;">
                                                     ✏️ Редагувати
                                                 </button>
@@ -269,7 +269,7 @@ window.AdminModule = {
                 </div>
             `;
         }
-    }
+    },
 
     // Допоміжна функція для рендеру картки товару
     renderArchiveCard(archive) {
@@ -296,7 +296,7 @@ window.AdminModule = {
                 </div>
             </div>
         `;
-    }
+    },
 
     // --- ДЕТАЛЬНА СТАТИСТИКА ---
     async showStats(app) {
