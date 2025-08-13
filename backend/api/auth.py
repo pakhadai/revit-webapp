@@ -25,55 +25,6 @@ def create_access_token(data: dict):
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-
-# --- ВИПРАВЛЕНА залежність для авторизації ---
-async def get_current_user_dependency(
-        authorization: Optional[str] = Header(None),
-        session: AsyncSession = Depends(get_session)
-):
-    """Залежність для отримання поточного користувача з токена в заголовку Authorization"""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization header missing")
-
-    try:
-        # Отримуємо токен з заголовка "Bearer TOKEN"
-        if not authorization.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Invalid authorization header format")
-
-        token = authorization.replace("Bearer ", "")
-
-        # Декодуємо токен
-        try:
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-            user_id_raw = payload.get("sub")
-
-            # ВИПРАВЛЕННЯ: Перетворюємо у число, якщо треба
-            if isinstance(user_id_raw, str):
-                user_id = int(user_id_raw)
-            elif isinstance(user_id_raw, int):
-                user_id = user_id_raw
-            else:
-                raise HTTPException(status_code=401, detail="Invalid user ID in token")
-
-        except (JWTError, ValueError, TypeError) as e:
-            raise HTTPException(status_code=401, detail=f"Token validation failed: {str(e)}")
-
-        # Отримуємо користувача з бази даних
-        result = await session.execute(select(User).where(User.id == user_id))
-        user = result.scalar_one_or_none()
-
-        if user is None:
-            raise HTTPException(status_code=401, detail="User not found")
-
-        return user
-
-    except HTTPException:
-        # Перекидаємо HTTPException як є
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
-
-
 def verify_telegram_data(init_data: str) -> dict:
     """
     Перевіряє дані ініціалізації Telegram WebApp.
