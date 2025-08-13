@@ -1,4 +1,3 @@
-# backend/api/__init__.py
 from .auth import router as auth_router
 from .archives import router as archives_router
 from .orders import router as orders_router

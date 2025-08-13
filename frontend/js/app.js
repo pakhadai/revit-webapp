@@ -37,9 +37,10 @@
                 await window.FavoritesModule.init(this);
                 if (!window.RatingsModule) await this.loadScript('js/modules/ratings.js');
                 await window.RatingsModule.init(this);
-                if (!window.NotificationsModule) await this.loadScript('js/modules/notifications.js'); // <-- ДОДАЄМО
-                await window.NotificationsModule.init(this); // <-- ДОДАЄМО
-
+                if (!window.NotificationsModule) await this.loadScript('js/modules/notifications.js');
+                await window.NotificationsModule.init(this);
+                if (!window.CartModule) await this.loadScript('js/modules/cart.js');
+                await window.CartModule.init(this);
                 if (!window.ResponsiveModule) await this.loadScript('js/modules/responsive.js');
                 window.ResponsiveModule.init();
                 this.setupPullToRefresh();
@@ -199,38 +200,13 @@
         }
 
         getCartPage() {
-            if (this.cart.length === 0) {
-                return `<div class="cart-page p-3" style="text-align: center; padding: 50px 20px;"><div style="font-size: 60px; margin-bottom: 20px;">🛒</div><h3>Кошик порожній</h3></div>`;
+            // Перевіряємо чи завантажений модуль
+            if (!window.CartModule) {
+                return `<div class="p-3">${this.t('app.loading')}</div>`;
             }
-            const itemsHtml = this.cart.map(item => `...`).join(''); // Ця частина залишається без змін
-            const subtotal = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-            // ✅ ЗАМІНІТЬ СТАРИЙ HTML КОШИКА НА ЦЕЙ
-            return `
-                <div class="cart-page p-3">
-                    <h2 style="margin-bottom: 20px;">Ваш кошик</h2>
-                    <div>${itemsHtml}</div>
-
-                    <div style="padding: 15px 10px;">
-                        <label for="promo-input" style="display: block; margin-bottom: 5px;">Промокод</label>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="text" id="promo-input" placeholder="Введіть код" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #ccc;">
-                            <button onclick="window.app.applyPromoCode()" style="padding: 12px 20px; background: var(--tg-theme-secondary-bg-color); border: none; border-radius: 8px; cursor: pointer;">Застосувати</button>
-                        </div>
-                        <div id="promo-message" style="font-size: 14px; margin-top: 10px;"></div>
-                    </div>
-
-                    <div style="padding: 20px 10px; border-top: 1px solid #ddd; margin-top: 10px;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;"><span>Проміжна сума:</span><span>$${subtotal.toFixed(2)}</span></div>
-                        <div id="discount-row" style="display: none; justify-content: space-between; color: green; margin-bottom: 10px;"><span>Знижка:</span><span id="discount-amount"></span></div>
-                        <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold;"><span>Всього:</span><span id="total-amount">$${subtotal.toFixed(2)}</span></div>
-                    </div>
-
-                    <div style="padding: 10px;">
-                        <button onclick="window.app.proceedToCheckout()" style="width: 100%; padding: 15px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); cursor: pointer;">${this.t('buttons.checkout')}</button>
-                    </div>
-                </div>
-            `;
+            // Використовуємо модуль кошика
+            return window.CartModule.getPage();
         }
 
         async getProfilePage() {
@@ -304,71 +280,31 @@
         addToCart(productId) {
             const product = this.productsCache.find(p => p.id == productId);
             if (!product) return;
-            const existingItem = this.cart.find(item => item.id == productId);
-            if (existingItem) existingItem.quantity++;
-            const finalPrice = product.discount_percent > 0
-                ? (product.price * (1 - product.discount_percent / 100))
-                : product.price;
 
-            this.cart.push({ ...product, quantity: 1, finalPrice: finalPrice });
+            const existingItem = this.cart.find(item => item.id == productId);
+            if (existingItem) {
+                existingItem.quantity++;
+                this.tg.showAlert(`${this.t('cart.quantityUpdated')}`);
+            } else {
+                const finalPrice = product.discount_percent > 0
+                    ? (product.price * (1 - product.discount_percent / 100))
+                    : product.price;
+
+                this.cart.push({
+                    ...product,
+                    quantity: 1,
+                    finalPrice: finalPrice
+                });
+
+                // Показуємо повідомлення
+                this.tg.showAlert(`✅ ${this.t('cart.itemAdded') || 'Додано в кошик'}`);
+            }
+
             this.storage.set('cart', this.cart);
             this.updateCartBadge();
             this.updateProductButton(productId);
         }
 
-        removeFromCart(productId) {
-            this.cart = this.cart.filter(item => item.id != productId);
-            this.storage.set('cart', this.cart);
-            this.updateCartBadge();
-            this.loadPage('cart');
-        }
-
-        async applyPromoCode() {
-            const code = document.getElementById('promo-input').value;
-            const subtotal = this.cart.reduce((sum, item) => sum + (item.finalPrice * item.quantity), 0);
-            const promoMessage = document.getElementById('promo-message');
-
-            try {
-                const response = await this.api.post('/api/orders/apply-promo', { code, subtotal });
-                if (response.success) {
-                    promoMessage.style.color = 'green';
-                    promoMessage.innerText = response.message;
-                    document.getElementById('discount-amount').innerText = `- $${response.discount_amount.toFixed(2)}`;
-                    document.getElementById('discount-row').style.display = 'flex';
-                    document.getElementById('total-amount').innerText = `$${response.final_total.toFixed(2)}`;
-                    this.promoCode = code; // Зберігаємо код
-                }
-            } catch (error) {
-                promoMessage.style.color = 'red';
-                promoMessage.innerText = error.message || 'Недійсний промокод';
-                document.getElementById('discount-row').style.display = 'none';
-                document.getElementById('total-amount').innerText = `$${subtotal.toFixed(2)}`;
-                this.promoCode = null;
-            }
-        }
-
-        // Оновіть цю функцію
-        proceedToCheckout() {
-            if (this.cart.length === 0) return this.tg.showAlert('Кошик порожній!');
-
-            const orderData = {
-                items: this.cart,
-                promo_code: this.promoCode // Надсилаємо код на сервер
-            };
-
-            this.api.post('/api/orders/create', orderData)
-                .then(response => {
-                    if (response.success) {
-                        this.tg.showAlert(`Ваше замовлення #${response.order_id} успішно створено!`);
-                        this.cart = [];
-                        this.storage.set('cart', []);
-                        this.promoCode = null; // Очищаємо промокод
-                        this.updateCartBadge();
-                        this.loadPage('catalog');
-                    }
-                })
-                .catch(error => this.tg.showAlert(`Помилка: ${error.message}`));
-        }
 
         updateCartBadge() {
             const badge = document.getElementById('cart-badge');
@@ -381,9 +317,10 @@
         updateProductButton(productId) {
             const button = document.getElementById(`product-btn-${productId}`);
             if (button) {
-                button.innerText = this.t('buttons.inCart');
+                button.textContent = this.t('buttons.inCart');
                 button.disabled = true;
                 button.style.backgroundColor = '#b0b0b0';
+                button.style.cursor = 'not-allowed';
             }
         }
 

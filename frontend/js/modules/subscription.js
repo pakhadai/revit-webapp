@@ -142,26 +142,31 @@ window.SubscriptionModule = {
         const t = (key) => app.t(key);
 
         const price = plan === 'yearly' ? 50 : 5;
-        const bonusesNeeded = price * 100;
+        const totalInBonuses = price * 100;
+        const maxBonusesAllowed = Math.floor(totalInBonuses * 0.7); // Максимум 70%
+        const minCashRequired = price * 0.3; // Мінімум 30% готівкою
         const userBonuses = app.user.bonuses || 0;
-        const canPayWithBonuses = userBonuses >= bonusesNeeded;
+        const canPayWithBonuses = userBonuses >= maxBonusesAllowed;
 
         const modalHtml = `
             <div id="subscription-modal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
-                <div style="background: white; border-radius: 16px; max-width: 400px; width: 100%; max-height: 90vh; overflow-y: auto;">
-                    <div style="padding: 20px; border-bottom: 1px solid #eee;">
+                <div style="background: var(--tg-theme-bg-color); border-radius: 16px; max-width: 400px; width: 100%; max-height: 90vh; overflow-y: auto;">
+                    <div style="padding: 20px; border-bottom: 1px solid var(--tg-theme-secondary-bg-color);">
                         <h3 style="margin: 0; display: flex; justify-content: space-between; align-items: center;">
                             ${t('subscription.purchase')} - ${plan === 'yearly' ? t('subscription.yearly') : t('subscription.monthly')}
-                            <button onclick="SubscriptionModule.closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">×</button>
+                            <button onclick="SubscriptionModule.closeModal()"
+                                    style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--tg-theme-hint-color);">
+                                ×
+                            </button>
                         </h3>
                     </div>
 
                     <div style="padding: 20px;">
-                        <!-- План -->
-                        <div style="background: #f8f9fa; border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+                        <!-- План підписки -->
+                        <div style="background: linear-gradient(135deg, #667eea20, #764ba220); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                 <span style="font-size: 18px; font-weight: 600;">
-                                    ${plan === 'yearly' ? '📅 12 ' + t('subscription.months') : '📅 1 ' + t('subscription.month')}
+                                    📅 ${plan === 'yearly' ? '12 ' + t('subscription.months') : '1 ' + t('subscription.month')}
                                 </span>
                                 <span style="font-size: 24px; font-weight: bold; color: var(--primary-color);">
                                     $${price}
@@ -169,42 +174,72 @@ window.SubscriptionModule = {
                             </div>
                             ${plan === 'yearly' ? `
                                 <div style="color: #27ae60; font-size: 14px;">
-                                    💰 ${t('subscription.saveYearly')} $10
+                                    💰 ${t('subscription.saveYearly')}
                                 </div>
                             ` : ''}
                         </div>
 
-                        <!-- Способи оплати -->
-                        <h4 style="margin: 0 0 15px;">${t('subscription.paymentMethod')}</h4>
-
-                        <!-- Бонуси -->
-                        <button onclick="SubscriptionModule.purchaseWithBonuses('${plan}')"
-                                ${!canPayWithBonuses ? 'disabled' : ''}
-                                style="width: 100%; padding: 15px; background: ${canPayWithBonuses ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#ccc'}; color: white; border: none; border-radius: 10px; margin-bottom: 10px; cursor: ${canPayWithBonuses ? 'pointer' : 'not-allowed'}; display: flex; justify-content: space-between; align-items: center;">
-                            <span>
-                                💎 ${t('subscription.payWithBonuses')}
-                            </span>
-                            <span>
-                                ${bonusesNeeded} / ${userBonuses}
-                            </span>
-                        </button>
-
-                        ${!canPayWithBonuses ? `
-                            <div style="color: #e74c3c; font-size: 12px; margin: -5px 0 10px;">
-                                ${t('subscription.notEnoughBonuses')} ${bonusesNeeded - userBonuses}
+                        <!-- ВАЖЛИВЕ ПОПЕРЕДЖЕННЯ -->
+                        <div style="padding: 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; margin-bottom: 20px;">
+                            <div style="color: #856404; font-size: 14px; font-weight: bold; margin-bottom: 5px;">
+                                ⚠️ ${t('subscription.bonusLimitTitle')}
                             </div>
-                        ` : ''}
+                            <div style="color: #856404; font-size: 13px; line-height: 1.5;">
+                                • ${t('subscription.maxBonusPercent')}<br>
+                                • ${t('subscription.forThisPlan')}: ${maxBonusesAllowed} ${t('bonuses')}<br>
+                                • ${t('subscription.restInCrypto')}: $${minCashRequired.toFixed(2)}
+                            </div>
+                        </div>
 
-                        <!-- Cryptomus -->
+                        <!-- Способи оплати -->
+                        <h4 style="margin: 0 0 15px; font-size: 16px;">
+                            ${t('subscription.paymentMethod')}
+                        </h4>
+
+                        <!-- Комбінована оплата (70% бонуси + 30% крипта) -->
+                        ${canPayWithBonuses ? `
+                            <button onclick="SubscriptionModule.purchaseWithMixed('${plan}')"
+                                    style="width: 100%; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; margin-bottom: 10px; cursor: pointer; position: relative;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span>
+                                        💎 ${maxBonusesAllowed} + 💳 $${minCashRequired.toFixed(2)}
+                                    </span>
+                                </div>
+                                <div style="font-size: 12px; margin-top: 5px; opacity: 0.9;">
+                                    ${t('subscription.combinedPayment')}
+                                </div>
+                            </button>
+                        ` : `
+                            <button disabled
+                                    style="width: 100%; padding: 15px; background: #ccc; color: white; border: none; border-radius: 10px; margin-bottom: 10px; cursor: not-allowed;">
+                                <div>
+                                    💎 ${t('subscription.notEnoughBonuses')}
+                                </div>
+                                <div style="font-size: 12px; margin-top: 5px;">
+                                    ${t('subscription.need')}: ${maxBonusesAllowed}, ${t('subscription.have')}: ${userBonuses}
+                                </div>
+                            </button>
+                        `}
+
+                        <!-- Повна оплата криптою -->
                         <button onclick="SubscriptionModule.purchaseWithCrypto('${plan}')"
                                 style="width: 100%; padding: 15px; background: #2c3e50; color: white; border: none; border-radius: 10px; margin-bottom: 10px; cursor: pointer;">
-                            🪙 ${t('subscription.payWithCrypto')}
+                            <div>🪙 ${t('subscription.payWithCrypto')}</div>
+                            <div style="font-size: 14px; margin-top: 5px; opacity: 0.9;">
+                                ${t('subscription.fullAmount')}: $${price}
+                            </div>
                         </button>
 
-                        <!-- Інфо -->
+                        <!-- Переваги підписки -->
                         <div style="padding: 15px; background: #f0f8ff; border-radius: 10px; margin-top: 20px;">
                             <div style="font-size: 14px; color: #2c3e50; line-height: 1.6;">
-                                ℹ️ ${t('subscription.info')}
+                                <div style="font-weight: bold; margin-bottom: 8px;">
+                                    ✨ ${t('subscription.benefits')}:
+                                </div>
+                                • ${t('subscription.benefit1')}<br>
+                                • ${t('subscription.benefit2')}<br>
+                                • ${t('subscription.benefit3')}<br>
+                                ${plan === 'yearly' ? `• ${t('subscription.benefit4')}` : ''}
                             </div>
                         </div>
                     </div>
@@ -220,46 +255,64 @@ window.SubscriptionModule = {
         const modal = document.getElementById('subscription-modal');
         if (modal) modal.remove();
     },
-
-    // Покупка за бонуси
-    async purchaseWithBonuses(plan) {
+    // Комбінована оплата (70% бонуси + 30% крипта)
+    async purchaseWithMixed(plan) {
         const app = window.app;
+        const t = (key) => app.t(key);
+        const price = plan === 'yearly' ? 50 : 5;
+        const maxBonuses = Math.floor(price * 100 * 0.7);
+        const remainingUsd = price * 0.3;
 
         try {
+            // Створюємо підписку з частковою оплатою бонусами
             const response = await app.api.post('/api/subscriptions/create', {
                 plan: plan,
-                payment_method: 'bonuses',
+                payment_method: 'mixed',
+                bonuses_amount: maxBonuses,
                 auto_renew: false
             });
 
-            if (response.success) {
+            if (response.payment_required) {
+                // Показуємо повідомлення
+                app.tg.showAlert(
+                    t('subscription.bonusesDeducted', {
+                        bonuses: maxBonuses,
+                        remaining: remainingUsd.toFixed(2)
+                    })
+                );
+
+                // Закриваємо модальне вікно
                 this.closeModal();
-                app.tg.showAlert(`✅ ${app.t('subscription.activated')}! ${app.t('subscription.validUntil')}: ${new Date(response.end_date).toLocaleDateString('uk-UA')}`);
 
-                // Оновлюємо баланс бонусів
-                app.user.bonuses -= response.bonuses_spent;
+                // Переходимо до оплати решти через Cryptomus
+                if (!window.PaymentModule) {
+                    await app.loadScript('js/modules/payment.js');
+                }
 
-                // Перезавантажуємо сторінку
-                await app.loadPage('home');
+                await window.PaymentModule.createPayment('subscription', {
+                    subscription_id: response.subscription_id,
+                    amount: remainingUsd,
+                    plan: plan,
+                    method: 'cryptomus'
+                }, app);
             }
         } catch (error) {
-            app.tg.showAlert(`❌ ${app.t('errors.purchaseFailed')}: ${error.message}`);
-       }
-   },
+            app.tg.showAlert(`❌ ${t('errors.purchaseFailed')}: ${error.message}`);
+        }
+    },
 
-   // Покупка за крипту
-   async purchaseWithCrypto(plan) {
+    // Повна оплата криптою
+    async purchaseWithCrypto(plan) {
         const app = window.app;
+        const t = (key) => app.t(key);
 
-        // Завантажуємо модуль платежів якщо ще не завантажений
+        this.closeModal();
+
+        // Створюємо платіж
         if (!window.PaymentModule) {
             await app.loadScript('js/modules/payment.js');
         }
 
-        // Закриваємо модальне вікно підписки
-        this.closeModal();
-
-        // Створюємо платіж
         await window.PaymentModule.createPayment('subscription', {
             plan: plan,
             method: 'cryptomus'

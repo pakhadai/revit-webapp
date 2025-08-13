@@ -84,7 +84,7 @@ async def create_subscription(
         current_user: User = Depends(get_current_user_dependency),
         session: AsyncSession = Depends(get_session)
 ):
-    """Створити нову підписку"""
+    """Створити нову підписку З ВАЛІДАЦІЄЮ БОНУСІВ 70%"""
 
     plan = data.get("plan", "monthly")  # monthly або yearly
     payment_method = data.get("payment_method", "bonuses")  # bonuses, cryptomus, card
@@ -97,39 +97,72 @@ async def create_subscription(
         )
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="You already have an active subscription")
+        raise HTTPException(
+            status_code=400,
+            detail="У вас вже є активна підписка"
+        )
 
     # Визначаємо ціну
     if plan == "yearly":
-        price = settings.SUBSCRIPTION_PRICE_YEARLY
+        price = settings.SUBSCRIPTION_PRICE_YEARLY  # $50
         months = 12
     else:
-        price = settings.SUBSCRIPTION_PRICE_MONTHLY
+        price = settings.SUBSCRIPTION_PRICE_MONTHLY  # $5
         months = 1
 
-    bonuses_needed = int(price * settings.BONUSES_PER_USD)
+    # Конвертуємо в бонуси
+    total_in_bonuses = int(price * settings.BONUSES_PER_USD)
+
+    # ВАЖЛИВО: Обчислюємо максимум бонусів (70%)
+    max_allowed_bonuses = int(total_in_bonuses * settings.BONUS_PURCHASE_CAP)
 
     # Якщо оплата бонусами
     if payment_method == "bonuses":
-        if current_user.bonuses < bonuses_needed:
+        bonuses_to_use = int(data.get("bonuses_amount", max_allowed_bonuses))
+
+        # Валідація 1: Не більше 70%
+        if bonuses_to_use > max_allowed_bonuses:
             raise HTTPException(
                 status_code=400,
-                detail=f"Not enough bonuses. Need {bonuses_needed}, have {current_user.bonuses}"
+                detail=f"Максимум {settings.BONUS_PURCHASE_CAP * 100:.0f}% можна оплатити бонусами. "
+                       f"Для плану '{plan}' це максимум {max_allowed_bonuses} бонусів"
+            )
+
+        # Валідація 2: Достатньо бонусів
+        if current_user.bonuses < bonuses_to_use:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Недостатньо бонусів. Потрібно: {bonuses_to_use}, є: {current_user.bonuses}"
+            )
+
+        # Валідація 3: Якщо використовуємо менше 70%, потрібна доплата
+        if bonuses_to_use < total_in_bonuses:
+            remaining_usd = (total_in_bonuses - bonuses_to_use) / settings.BONUSES_PER_USD
+            raise HTTPException(
+                status_code=400,
+                detail=f"Підписка коштує ${price:.2f}. При оплаті {bonuses_to_use} бонусами, "
+                       f"потрібно доплатити ${remaining_usd:.2f} через Cryptomus"
             )
 
         # Списуємо бонуси
-        current_user.bonuses -= bonuses_needed
-        current_user.total_bonuses_spent += bonuses_needed
+        current_user.bonuses -= bonuses_to_use
+        current_user.total_bonuses_spent += bonuses_to_use
 
         # Записуємо транзакцію
         transaction = BonusTransaction(
             user_id=current_user.id,
-            amount=-bonuses_needed,
+            amount=-bonuses_to_use,
             balance_after=current_user.bonuses,
             type=BonusTransactionType.SUBSCRIPTION_PAYMENT,
-            description=f"Subscription {plan} payment"
+            description=f"Оплата підписки {plan} ({bonuses_to_use} бонусів)"
         )
         session.add(transaction)
+
+        # Рахуємо реальну суму в USD що була оплачена
+        amount_paid = bonuses_to_use / settings.BONUSES_PER_USD
+    else:
+        bonuses_to_use = 0
+        amount_paid = price
 
     # Створюємо підписку
     now = datetime.now(timezone.utc)
@@ -142,8 +175,8 @@ async def create_subscription(
         start_date=now,
         end_date=end_date,
         payment_method=payment_method,
-        amount_paid=price,
-        bonuses_used=bonuses_needed if payment_method == "bonuses" else 0,
+        amount_paid=amount_paid,
+        bonuses_used=bonuses_to_use,
         auto_renew=data.get("auto_renew", False)
     )
 
@@ -157,24 +190,61 @@ async def create_subscription(
     await session.commit()
     await session.refresh(subscription)
 
-    # Якщо оплата не бонусами - повертаємо дані для оплати
+    # Якщо оплата не бонусами - створюємо платіж
     if payment_method != "bonuses":
         # Тут буде інтеграція з Cryptomus
         return {
             "success": True,
             "subscription_id": subscription.id,
             "payment_required": True,
-            "payment_method": payment_method,
+            "payment_url": f"/api/payments/create",  # URL для оплати
             "amount": price,
-            "payment_url": f"/api/payments/cryptomus/create?subscription_id={subscription.id}"
+            "currency": "USD"
         }
 
     return {
         "success": True,
         "subscription_id": subscription.id,
-        "message": f"Subscription activated for {months} month(s)",
-        "end_date": end_date.isoformat(),
-        "bonuses_spent": bonuses_needed
+        "payment_required": False,
+        "start_date": subscription.start_date.isoformat(),
+        "end_date": subscription.end_date.isoformat(),
+        "bonuses_spent": bonuses_to_use,
+        "plan": plan
+    }
+
+
+@router.get("/check-bonus-limit/{plan}")
+async def check_subscription_bonus_limit(
+        plan: str,
+        current_user: User = Depends(get_current_user_dependency)
+):
+    """Перевірити скільки максимум бонусів можна використати для підписки"""
+
+    if plan not in ["monthly", "yearly"]:
+        raise HTTPException(status_code=400, detail="Невірний план")
+
+    # Визначаємо ціну
+    price = settings.SUBSCRIPTION_PRICE_YEARLY if plan == "yearly" else settings.SUBSCRIPTION_PRICE_MONTHLY
+
+    # Конвертуємо в бонуси
+    total_in_bonuses = int(price * settings.BONUSES_PER_USD)
+
+    # Максимум 70%
+    max_allowed_bonuses = int(total_in_bonuses * settings.BONUS_PURCHASE_CAP)
+
+    # Обмежуємо балансом користувача
+    can_use = min(max_allowed_bonuses, current_user.bonuses)
+
+    return {
+        "plan": plan,
+        "price_usd": price,
+        "price_in_bonuses": total_in_bonuses,
+        "max_allowed_bonuses": max_allowed_bonuses,
+        "user_bonuses": current_user.bonuses,
+        "can_use_bonuses": can_use,
+        "percentage_limit": settings.BONUS_PURCHASE_CAP * 100,
+        "requires_additional_payment": can_use < total_in_bonuses,
+        "additional_payment_usd": (total_in_bonuses - can_use) / settings.BONUSES_PER_USD if can_use < total_in_bonuses else 0
     }
 
 
