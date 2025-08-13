@@ -21,7 +21,7 @@ window.DailyBonusModule = {
     // Завантажити статус
     async loadStatus() {
         try {
-            this.status = await this.app.api.get('/api/bonuses/daily/status');
+            this.status = await this.app.api.get('/api/bonuses/daily-bonus');
             return this.status;
         } catch (error) {
             console.error('Error loading daily bonus status:', error);

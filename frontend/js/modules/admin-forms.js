@@ -227,51 +227,39 @@ Object.assign(window.AdminModule, {
     // --- СТВОРЕННЯ ТОВАРУ ---
     async createArchive(app) {
         try {
-            const formData = new FormData(document.getElementById('archive-form'));
+            // Використовуємо нашу допоміжну функцію, щоб зібрати всі дані з полів форми
+            const archiveData = this._getFormData('');
 
-            // Збираємо дані з форми
-            const archiveData = {
-                code: formData.get('code'),
-                title: {
-                    ua: formData.get('title_ua'),
-                    en: formData.get('title_en')
-                },
-                description: {
-                    ua: formData.get('description_ua'),
-                    en: formData.get('description_en')
-                },
-                price: parseFloat(formData.get('price')) || 0,
-                discount_percent: parseInt(formData.get('discount_percent')) || 0,
-                archive_type: formData.get('archive_type'),
-                // Використовуємо збережені шляхи з window
-                image_paths: window.uploadedImages || [],
-                file_path: window.uploadedArchivePath || null,
-                file_size: window.uploadedArchiveSize || null
-            };
+            // Прямо запитуємо у модуля завантажень шляхи до файлів
+            archiveData.image_paths = window.AdminUploadModule.uploadedImages || [];
 
-            // Валідація
-            if (!archiveData.code) {
-                alert('Введіть код товару!');
-                return;
+            if (window.AdminUploadModule.uploadedArchive) {
+                archiveData.file_path = window.AdminUploadModule.uploadedArchive.file_path;
+                archiveData.file_size = window.AdminUploadModule.uploadedArchive.file_size;
             }
-            if (!archiveData.title.ua || !archiveData.title.en) {
-                alert('Введіть назву українською та англійською!');
+
+            // Перевіряємо, чи є файл архіву
+            if (!archiveData.file_path) {
+                alert('Будь ласка, завантажте файл архіву (.zip, .rar).');
                 return;
             }
 
             // Відправка на сервер
             const response = await app.api.post('/api/admin/archives', archiveData);
 
-            if (response.id) {
+            if (response.success || response.archive_id) {
                 alert('✅ Товар успішно створено!');
 
-                // Очищаємо тимчасові змінні
-                window.uploadedImages = [];
-                window.uploadedArchivePath = null;
-                window.uploadedArchiveSize = null;
+                // Очищуємо кеш, щоб каталог завантажив свіжий список товарів
+                window.app.productsCache = [];
+
+                // Скидаємо стан модуля завантажень
+                window.AdminUploadModule.reset();
 
                 // Повертаємось до списку товарів
-                window.AdminModule.showArchives(app);
+                this.showArchives(app);
+            } else {
+                throw new Error(response.detail || 'Невідома помилка сервера');
             }
         } catch (error) {
             console.error('Create archive error:', error);
@@ -279,13 +267,18 @@ Object.assign(window.AdminModule, {
         }
     },
 
+    // --- ВИПРАВЛЕННЯ №4: ОНОВЛЕННЯ ТОВАРУ З ОЧИЩЕННЯМ КЕШУ ---
     async updateArchive(app, archiveId) {
         try {
-            const formData = this._getFormData('edit_'); // Використовуємо префікс 'edit_'
+            const formData = this._getFormData('edit_');
             const response = await app.api.put(`/api/admin/archives/${archiveId}`, formData);
 
             if (response.success) {
                 alert('✅ Товар успішно оновлено!');
+
+                // Очищуємо кеш, щоб зміни відобразилися скрізь
+                window.app.productsCache = [];
+
                 this.showArchives(app);
             }
         } catch (error) {

@@ -5,7 +5,9 @@ from sqlalchemy import select, update
 from database import get_session
 from models.user import User
 from models.payment import Payment
-from models.order import Order
+from models.order import Order, OrderItem
+# --- ОСЬ ТУТ ВИПРАВЛЕННЯ ---
+from models.archive import Archive, ArchivePurchase
 from models.subscription import Subscription, SubscriptionStatus
 from models.bonus import BonusTransaction, BonusTransactionType, VipLevel
 from models.notification import Notification
@@ -123,7 +125,8 @@ async def create_payment(
                 "payment_url": result["payment_url"],
                 "amount": amount,
                 "currency": currency,
-                "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=settings.PAYMENT_TIMEOUT_MINUTES)).isoformat()
+                "expires_at": (datetime.now(timezone.utc) + timedelta(
+                    minutes=settings.PAYMENT_TIMEOUT_MINUTES)).isoformat()
             }
         else:
             new_payment.status = "failed"
@@ -218,11 +221,30 @@ async def process_order_payment(payment: Payment, session: AsyncSession):
     order.status = "completed"
     order.completed_at = datetime.utcnow()
 
-    # Створюємо повідомлення для кожного товару в замовленні
-    items_result = await session.execute(select(OrderItem).where(OrderItem.order_id == order.id))
-    items = items_result.scalars().all()
+    # 1. Надаємо користувачу доступ до куплених товарів
+    items_result = await session.execute(
+        select(OrderItem).where(OrderItem.order_id == order.id)
+    )
+    order_items = items_result.scalars().all()
 
-    for item in items:
+    for item in order_items:
+        # Перевіряємо, чи вже є доступ, щоб уникнути дублікатів
+        existing_purchase = await session.execute(
+            select(ArchivePurchase).where(
+                ArchivePurchase.user_id == payment.user_id,
+                ArchivePurchase.archive_id == item.archive_id
+            )
+        )
+        if not existing_purchase.scalar_one_or_none():
+            new_purchase = ArchivePurchase(
+                user_id=payment.user_id,
+                archive_id=item.archive_id,
+                price_paid=item.price  # Можна зберегти ціну
+            )
+            session.add(new_purchase)
+
+    # 2. Створюємо повідомлення для кожного товару в замовленні
+    for item in order_items:
         archive = await session.get(Archive, item.archive_id)
         if archive:
             notification = Notification(

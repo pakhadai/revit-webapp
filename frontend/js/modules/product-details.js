@@ -1,9 +1,9 @@
-// frontend/js/modules/product-details.js - ОНОВЛЕНА ВЕРСІЯ З КОМЕНТАРЯМИ
+// frontend/js/modules/product-details.js - ПОВНА ВЕРСІЯ З УСІМА ВИПРАВЛЕННЯМИ
 
 window.ProductDetailsModule = {
 
     async show(archiveId) {
-        // Завантажуємо необхідні модулі
+        // Завантажуємо необхідні модулі, якщо їх ще немає
         if (!window.HistoryModule) {
             await window.app.loadScript('js/modules/history.js');
         }
@@ -15,41 +15,39 @@ window.ProductDetailsModule = {
 
         if (!window.CommentsModule) {
             await window.app.loadScript('js/modules/comments.js');
-            // ВАЖЛИВО: Ініціалізуємо модуль коментарів
             await window.CommentsModule.init(window.app);
         }
 
-        // Перевіряємо що модуль ініціалізований
+        // Перевіряємо, що модуль коментарів точно ініціалізовано
         if (!window.CommentsModule.app) {
             await window.CommentsModule.init(window.app);
         }
 
         let archive = window.app.productsCache.find(p => p.id === archiveId);
 
-            // ✅ ПОКРАЩЕННЯ: Якщо товару немає в кеші - завантажуємо його з сервера
-            if (!archive) {
-                try {
-                    // Робимо запит до API, щоб отримати дані одного конкретного товару
-                    archive = await window.app.api.get(`/api/archives/${archiveId}`);
+        // Якщо товару немає в кеші - завантажуємо його з сервера
+        if (!archive) {
+            try {
+                archive = await window.app.api.get(`/api/archives/${archiveId}`);
 
-                    // Додаємо завантажений товар у кеш, щоб не робити зайвих запитів
-                    if (archive && !window.app.productsCache.find(p => p.id === archiveId)) {
-                        window.app.productsCache.push(archive);
-                    }
-                } catch (error) {
-                    console.error('Failed to fetch product details:', error);
-                    window.app.tg.showAlert('Помилка: не вдалося завантажити дані про товар.');
-                    this.close(); // Закриваємо модальне вікно, якщо воно було
-                    return;
+                // Додаємо завантажений товар у кеш
+                if (archive && !window.app.productsCache.find(p => p.id === archiveId)) {
+                    window.app.productsCache.push(archive);
                 }
-            }
-
-            // Остаточна перевірка, чи вдалося отримати дані про товар
-            if (!archive) {
-                window.app.tg.showAlert('Помилка: товар не знайдено.');
+            } catch (error) {
+                console.error('Failed to fetch product details:', error);
+                window.app.tg.showAlert('Помилка: не вдалося завантажити дані про товар.');
                 this.close();
                 return;
             }
+        }
+
+        // Остаточна перевірка, чи вдалося отримати дані про товар
+        if (!archive) {
+            window.app.tg.showAlert('Помилка: товар не знайдено.');
+            this.close();
+            return;
+        }
 
         // Трекаємо перегляд
         window.HistoryModule.trackView(archiveId);
@@ -66,10 +64,13 @@ window.ProductDetailsModule = {
         const modalId = 'product-details-modal';
         this.close();
 
-        // Визначаємо чи є зображення
-        const hasRealImage = archive.image_path && !archive.image_path.includes('placeholder.png');
+        // --- ВИПРАВЛЕННЯ: Правильно отримуємо шлях до зображення ---
+        const imagePath = archive.image_paths && archive.image_paths.length > 0 ? archive.image_paths[0] : null;
+
+        // Визначаємо, чи є реальне зображення, чи потрібно показати емодзі
+        const hasRealImage = imagePath && !imagePath.includes('placeholder.png');
         const imageAreaHtml = hasRealImage
-            ? `<img src="${archive.image_path}" alt="${displayTitle}" style="width: 100%; height: 180px; border-radius: 8px; object-fit: cover; margin-bottom: 20px;">`
+            ? `<img src="${imagePath}" alt="${displayTitle}" style="width: 100%; height: 180px; border-radius: 8px; object-fit: cover; margin-bottom: 20px;">`
             : `<div style="height: 180px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">${archive.archive_type === 'premium' ? '💎' : '📦'}</div>`;
 
         const modalHtml = `
@@ -82,16 +83,13 @@ window.ProductDetailsModule = {
                     <div class="modal-body">
                         ${imageAreaHtml}
 
-                        <!-- Рейтинг -->
                         <div style="text-align: center; margin-bottom: 20px;">
                             <p style="margin: 0 0 10px; color: var(--tg-theme-hint-color);">Оцініть цей архів:</p>
                             ${RatingsModule.renderInteractiveStars(archiveId)}
                         </div>
 
-                        <!-- Опис -->
                         <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">${displayDescription}</p>
 
-                        <!-- Інформація про товар -->
                         <div style="background: var(--tg-theme-secondary-bg-color); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                 <div>
@@ -118,7 +116,6 @@ window.ProductDetailsModule = {
                             </div>
                         </div>
 
-                        <!-- Кнопка коментарів -->
                         <button
                             onclick="CommentsModule.showComments(${archiveId})"
                             style="width: 100%; padding: 12px; background: var(--tg-theme-secondary-bg-color); border: none; border-radius: 8px; margin-bottom: 15px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; font-size: 16px; font-weight: 600;"

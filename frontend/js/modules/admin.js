@@ -173,7 +173,6 @@ window.AdminModule = {
     },
 
     // --- СТОРІНКА УПРАВЛІННЯ ТОВАРАМИ ---
-    // --- СТОРІНКА УПРАВЛІННЯ ТОВАРАМИ ---
     async showArchives(app) {
         const content = document.getElementById('app-content');
         content.innerHTML = `<div class="loader-container"><div class="loader"></div></div>`;
@@ -223,14 +222,15 @@ window.AdminModule = {
                         <div class="archives-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
                             ${archives.map(archive => {
                                 const title = archive.title?.ua || archive.title?.en || archive.code;
-                                const image = archive.image_path || '/static/images/placeholder.png';
+                                // --- CORRECTED PLACEHOLDER PATH ---
+                                const image = archive.image_path || 'images/icons/icon-192x192.png';
                                 const price = archive.price || 0;
 
                                 return `
                                     <div class="archive-card" style="background: var(--tg-theme-bg-color); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                                         <img src="${image}" alt="${title}"
                                              style="width: 100%; height: 200px; object-fit: cover;"
-                                             onerror="this.src='/static/images/placeholder.png'">
+                                             onerror="this.onerror=null; this.src='images/icons/icon-192x192.png';">
                                         <div style="padding: 15px;">
                                             <h4 style="margin: 0 0 8px;">${title}</h4>
                                             <p style="margin: 0 0 8px; color: var(--tg-theme-hint-color); font-size: 14px;">

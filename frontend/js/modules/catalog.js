@@ -29,12 +29,19 @@ window.CatalogModule = {
     },
 
     getProductCard(archive, app) {
-        const { id, title, price, discount_percent, archive_type, average_rating, ratings_count } = archive;
+        const { id, title, price, discount_percent, archive_type, average_rating, ratings_count, image_paths } = archive;
         const lang = app.currentLang || 'ua';
         const isInCart = app.cart.some(item => item.id === id);
         const isFavorite = window.FavoritesModule.isFavorite(id);
         const displayTitle = title[lang] || title['en'] || 'No title';
         const finalPrice = discount_percent > 0 ? (price * (1 - discount_percent / 100)).toFixed(2) : price;
+
+        // --- ОСНОВНЕ ВИПРАВЛЕННЯ ДЛЯ КАТАЛОГУ ---
+        // Перевіряємо, чи є зображення. Якщо ні - показуємо емодзі.
+        const imagePath = image_paths && image_paths.length > 0 ? image_paths[0] : null;
+        const imageAreaHtml = imagePath
+            ? `<img src="${imagePath}" alt="${displayTitle}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">`
+            : `<div style="font-size: 40px;">${archive_type === 'premium' ? '💎' : '📦'}</div>`;
 
         let buttonHtml;
         if (isInCart) {
@@ -60,8 +67,8 @@ window.CatalogModule = {
                  })(event)"
                  style="background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;">
                 <div>
-                    <div style="height: 120px; border-radius: 8px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); position: relative;">
-                        ${archive_type === 'premium' ? '💎' : '📦'}
+                    <div style="height: 120px; border-radius: 8px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; color: white; background: var(--tg-theme-secondary-bg-color); position: relative;">
+                        ${imageAreaHtml}
                         ${discount_percent > 0 ? `<div style="position: absolute; top: 5px; right: 5px; background: red; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">-${discount_percent}%</div>` : ''}
 
                         <button class="favorite-btn" onclick="window.FavoritesModule.toggleFavorite(${id}, this)" style="position: absolute; top: 5px; left: 5px; background: rgba(255,255,255,0.2); border: none; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer;">

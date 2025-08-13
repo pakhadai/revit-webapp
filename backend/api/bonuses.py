@@ -1,5 +1,38 @@
-from utils.timezone import get_kyiv_time, get_kyiv_midnight, seconds_until_kyiv_midnight
+# backend/api/bonuses.py
 
+# --- ДОДАНО ВІДСУТНІ ІМПОРТИ ---
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from datetime import datetime, timedelta, timezone
+
+from database import get_session
+from models.user import User
+from models.bonus import DailyBonus, BonusTransaction, BonusTransactionType
+from .auth import get_current_user_dependency
+from utils.timezone import get_kyiv_time, get_kyiv_midnight, seconds_until_kyiv_midnight, utc_to_kyiv
+
+# --- ДОДАНО СТВОРЕННЯ РОУТЕРА ---
+router = APIRouter()
+
+
+@router.get("/daily/status")
+async def get_daily_bonus_status(
+    current_user: User = Depends(get_current_user_dependency),
+    session: AsyncSession = Depends(get_session)
+):
+    """Get the current status of the daily bonus for the user."""
+    # This logic can be expanded later, for now, we'll return a basic status
+    # to fix the 404 error and allow the block to render.
+    # A more complete implementation would check the last claim date.
+    return {
+        "can_claim": True, # Placeholder logic
+        "current_streak": 0,
+        "next_reward": 10,
+        "streak_broken": False,
+        "can_restore": False,
+        "restore_cost": 30
+    }
 
 @router.post("/daily-bonus")
 async def claim_daily_bonus(
@@ -49,33 +82,33 @@ async def claim_daily_bonus(
 
     # Визначаємо розмір бонусу залежно від стріку
     bonus_amounts = {
-        1: 10,  # День 1
-        2: 15,  # День 2
-        3: 20,  # День 3
-        4: 25,  # День 4
-        5: 30,  # День 5
-        6: 35,  # День 6
-        7: 50,  # День 7 - максимальний бонус
+        1: 1,  # День 1
+        2: 2,  # День 2
+        3: 3,  # День 3
+        4: 4,  # День 4
+        5: 5,  # День 5
+        6: 7,  # День 6
+        7: 10,  # День 7 - максимальний бонус
     }
 
     # Після 7 днів стрік продовжується, але бонус залишається 50
     if current_streak <= 7:
         bonus_amount = bonus_amounts[current_streak]
     else:
-        bonus_amount = 50
+        bonus_amount = 10
 
     # Нараховуємо бонуси
     current_user.bonuses += bonus_amount
     current_user.total_bonuses_earned += bonus_amount
 
     # Записуємо в історію
-    daily_bonus = DailyBonus(
+    daily_bonus_record = DailyBonus(
         user_id=current_user.id,
         amount=bonus_amount,
         streak=current_streak,
         claimed_at=datetime.now(timezone.utc)  # Зберігаємо в UTC
     )
-    session.add(daily_bonus)
+    session.add(daily_bonus_record)
 
     # Записуємо транзакцію
     transaction = BonusTransaction(
@@ -91,10 +124,8 @@ async def claim_daily_bonus(
 
     # Визначаємо завтрашній бонус
     tomorrow_streak = current_streak + 1
-    if tomorrow_streak <= 7:
-        tomorrow_bonus = bonus_amounts[tomorrow_streak]
-    else:
-        tomorrow_bonus = 50
+    tomorrow_bonus = bonus_amounts.get(tomorrow_streak, 50)
+
 
     # Час до наступного бонусу
     seconds_left = seconds_until_kyiv_midnight()

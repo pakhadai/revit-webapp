@@ -62,7 +62,7 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables verified/created.")
-        await seed_data()
+        #await seed_data()
 
 async def seed_data():
     async with async_session() as session:
