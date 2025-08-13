@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RevitBot Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-block {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status { font-weight: bold; }
+        .success { color: green; }
+        .error { color: red; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            background: #2481cc;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background: #1a5fa0; }
+    </style>
+</head>
+<body>
+    <h1>🤖 RevitBot Test Page</h1>
+
+    <div class="test-block">
+        <h2>1. API Connection Test</h2>
+        <button onclick="testAPI()">Test API</button>
+        <div id="api-result"></div>
+    </div>
+
+    <div class="test-block">
+        <h2>2. Auth Test</h2>
+        <button onclick="testAuth()">Test Auth</button>
+        <div id="auth-result"></div>
+    </div>
+
+    <div class="test-block">
+        <h2>3. Archives Test</h2>
+        <button onclick="testArchives()">Test Archives</button>
+        <div id="archives-result"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8001';
+
+        async function testAPI() {
+            const resultDiv = document.getElementById('api-result');
+            try {
+                const response = await fetch(API_URL + '/');
+                const data = await response.json();
+                resultDiv.innerHTML = '<span class="status success">✅ API працює!</span><br>' + 
+                                     JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultDiv.innerHTML = '<span class="status error">❌ API не доступний</span><br>' + error;
+            }
+        }
+
+        async function testAuth() {
+            const resultDiv = document.getElementById('auth-result');
+            try {
+                const response = await fetch(API_URL + '/api/auth/telegram', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({initData: 'dev_mode=true'})
+                });
+                const data = await response.json();
+                resultDiv.innerHTML = '<span class="status success">✅ Auth працює!</span><br>' + 
+                                     JSON.stringify(data, null, 2);
+                if (data.token) {
+                    localStorage.setItem('test_token', data.token);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<span class="status error">❌ Auth помилка</span><br>' + error;
+            }
+        }
+
+        async function testArchives() {
+            const resultDiv = document.getElementById('archives-result');
+            try {
+                const response = await fetch(API_URL + '/api/archives/list');
+                const data = await response.json();
+                resultDiv.innerHTML = '<span class="status success">✅ Archives працює!</span><br>' + 
+                                     'Знайдено архівів: ' + (data.archives?.length || 0);
+            } catch (error) {
+                resultDiv.innerHTML = '<span class="status error">❌ Archives помилка</span><br>' + error;
+            }
+        }
+    </script>
+</body>
+</html>

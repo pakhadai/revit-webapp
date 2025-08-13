@@ -5,7 +5,7 @@ from sqlalchemy import select, func, update
 from database import get_session
 from models.user import User
 from models.notification import Notification
-from .auth import get_current_user_dependency
+from .dependencies import get_current_user_dependency
 from typing import List
 
 router = APIRouter()

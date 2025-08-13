@@ -13,7 +13,7 @@ from models.bonus import BonusTransaction, BonusTransactionType, VipLevel
 from models.notification import Notification
 from services.cryptomus import cryptomus_service
 from config import settings
-from .auth import get_current_user_dependency
+from .dependencies import get_current_user_dependency
 from datetime import datetime, timedelta, timezone
 import uuid
 import json

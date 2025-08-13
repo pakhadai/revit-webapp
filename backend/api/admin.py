@@ -7,7 +7,7 @@ from database import get_session
 from models import Order, OrderItem
 from models.user import User
 from models.archive import Archive
-from .auth import get_current_user_dependency
+from .dependencies import get_current_user_dependency
 from datetime import datetime, timedelta, timezone
 import logging
 import traceback  # <-- Важливий імпорт для діагностики

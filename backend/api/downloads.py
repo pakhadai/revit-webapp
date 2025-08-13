@@ -9,7 +9,7 @@ from models.archive import Archive, ArchivePurchase
 from models.subscription import SubscriptionArchive
 from services.file_service import file_service
 from config import settings
-from .auth import get_current_user_dependency
+from .dependencies import get_current_user_dependency
 import aiofiles
 from pathlib import Path
 import logging

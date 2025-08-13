@@ -6,7 +6,7 @@ from database import get_session
 from models.user import User
 from models.bonus import VipLevel
 from config import settings
-from .auth import get_current_user_dependency
+from .dependencies import get_current_user_dependency
 
 router = APIRouter()
 

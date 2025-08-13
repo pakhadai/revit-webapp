@@ -10,7 +10,7 @@ from models.user import User
 from models.bonus import BonusTransaction, BonusTransactionType
 
 from config import settings
-from .auth import get_current_user_dependency
+from .dependencies import get_current_user_dependency
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict
 import pytz

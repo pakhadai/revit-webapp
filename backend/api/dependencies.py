@@ -1,8 +1,11 @@
-# Цей файл містить спільні залежності, щоб уникнути циклічних імпортів.
+# backend/api/dependencies.py
+# Цей файл містить спільні залежності, щоб уникнути циклічних імпортів
+
 from fastapi import Depends, HTTPException, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from jose import JWTError, jwt
 from typing import Optional
+from sqlalchemy import select
 
 from database import get_session
 from models.user import User
@@ -10,8 +13,8 @@ from config import settings
 
 
 async def get_current_user_dependency(
-        authorization: Optional[str] = Header(None),
-        session: AsyncSession = Depends(get_session)
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
 ):
     """
     Декодує JWT токен з заголовка 'Authorization' та повертає поточного користувача.
@@ -48,3 +51,12 @@ async def get_current_user_dependency(
         raise credentials_exception
 
     return user
+
+
+def admin_required(current_user: User = Depends(get_current_user_dependency)):
+    """
+    Перевірка чи користувач є адміністратором.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    return current_user

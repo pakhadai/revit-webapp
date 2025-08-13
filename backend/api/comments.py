@@ -8,7 +8,7 @@ from models.comment import Comment
 from models.archive import Archive, ArchivePurchase
 from models.subscription import SubscriptionArchive
 from models.order import Order, OrderItem
-from .auth import get_current_user_dependency
+from .dependencies import get_current_user_dependency
 from typing import List, Dict, Optional
 from datetime import datetime
 

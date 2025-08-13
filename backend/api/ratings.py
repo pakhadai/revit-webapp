@@ -11,7 +11,7 @@ from models.archive import Archive, ArchivePurchase
 from models.subscription import SubscriptionArchive
 from models.archive_rating import ArchiveRating
 from models.order import Order, OrderItem  # <-- ДОДАНО ІМПОРТИ
-from .auth import get_current_user_dependency
+from .dependencies import get_current_user_dependency
 from typing import List, Dict
 
 router = APIRouter()

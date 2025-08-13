@@ -1,79 +1,186 @@
+# backend/api/vip_processing.py
+"""
+Модуль для обробки VIP статусів користувачів
+"""
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime
-from models.archive import Archive
 from models.user import User
-from models.bonus import VipLevel, BonusTransaction, BonusTransactionType
-from models.order import Order
+from models.bonus import VipLevel
 from config import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 async def update_vip_status_after_purchase(
-    user_id: int,
-    order: Order,
-    session: AsyncSession
-):
+        user_id: int,
+        purchase_amount: float,
+        session: AsyncSession
+) -> VipLevel:
     """
-    Оновлює VIP-статус користувача, рівень та нараховує кешбек після покупки.
-    Викликається, коли статус замовлення стає 'completed'.
+    Оновити VIP статус користувача після покупки
+
+    Args:
+        user_id: ID користувача
+        purchase_amount: Сума покупки в USD
+        session: Сесія бази даних
+
+    Returns:
+        Новий VIP рівень користувача
     """
-    # 1. Отримуємо користувача та його VIP-рівень
-    user_result = await session.execute(select(User).where(User.id == user_id))
-    user = user_result.scalar_one()
 
-    vip_result = await session.execute(select(VipLevel).where(VipLevel.user_id == user_id))
-    vip_level = vip_result.scalar_one_or_none()
+    try:
+        # Отримуємо користувача
+        user = await session.get(User, user_id)
+        if not user:
+            logger.error(f"User {user_id} not found")
+            return VipLevel.NONE
 
-    if not vip_level:
-        vip_level = VipLevel(
-            user_id=user_id,
-            current_level='bronze',
-            cashback_rate=settings.VIP_BRONZE_CASHBACK
-        )
-        session.add(vip_level)
-        await session.flush()
+        # Оновлюємо загальну суму витрат
+        user.total_spent += purchase_amount
 
-    # 2. Оновлюємо загальну суму витрат
-    order_total = order.total
-    vip_level.total_spent += order_total
-    vip_level.purchases_count += 1
-    user.total_purchases_amount += order_total
+        # Визначаємо новий VIP рівень
+        old_level = user.vip_level
+        new_level = calculate_vip_level(user.total_spent)
 
-    # 3. Перевіряємо на підвищення рівня
-    new_level = vip_level.current_level
-    new_cashback_rate = vip_level.cashback_rate
+        # Якщо рівень змінився
+        if new_level != old_level:
+            user.vip_level = new_level
+            logger.info(f"User {user_id} VIP level upgraded from {old_level} to {new_level}")
 
-    if vip_level.current_level == 'bronze' and vip_level.total_spent >= settings.VIP_SILVER_THRESHOLD:
-        new_level = 'silver'
-        new_cashback_rate = settings.VIP_SILVER_CASHBACK
-    if vip_level.current_level == 'silver' and vip_level.total_spent >= settings.VIP_GOLD_THRESHOLD:
-        new_level = 'gold'
-        new_cashback_rate = settings.VIP_GOLD_CASHBACK
-    if vip_level.current_level == 'gold' and vip_level.total_spent >= settings.VIP_DIAMOND_THRESHOLD:
-        new_level = 'diamond'
-        new_cashback_rate = settings.VIP_DIAMOND_CASHBACK
+            # Тут можна додати відправку повідомлення про підвищення рівня
+            # await send_vip_upgrade_notification(user_id, old_level, new_level)
 
-    if new_level != vip_level.current_level:
-        vip_level.current_level = new_level
-        vip_level.cashback_rate = new_cashback_rate
-        vip_level.level_updated_at = datetime.utcnow()
+        await session.commit()
+        return new_level
 
-    # 4. Розраховуємо та нараховуємо кешбек
-    cashback_amount = int(order_total * new_cashback_rate)
+    except Exception as e:
+        logger.error(f"Error updating VIP status for user {user_id}: {e}")
+        await session.rollback()
+        return VipLevel.NONE
 
-    if cashback_amount > 0:
-        user.bonuses += cashback_amount
-        user.total_bonuses_earned += cashback_amount
-        vip_level.total_cashback_earned += cashback_amount
 
-        # 5. Створюємо транзакцію для бонусу
-        transaction = BonusTransaction(
-            user_id=user_id,
-            amount=cashback_amount,
-            balance_after=user.bonuses,
-            type=BonusTransactionType.PURCHASE_CASHBACK,
-            description=f"Cashback for order #{order.order_id} (VIP {vip_level.current_level.capitalize()})",
-            order_id=order.id
-        )
-        session.add(transaction)
+def calculate_vip_level(total_spent: float) -> VipLevel:
+    """
+    Розрахувати VIP рівень на основі загальної суми витрат
 
-    await session.commit()
+    Args:
+        total_spent: Загальна сума витрат в USD
+
+    Returns:
+        VIP рівень
+    """
+
+    if total_spent >= settings.VIP_DIAMOND_THRESHOLD:
+        return VipLevel.DIAMOND
+    elif total_spent >= settings.VIP_GOLD_THRESHOLD:
+        return VipLevel.GOLD
+    elif total_spent >= settings.VIP_SILVER_THRESHOLD:
+        return VipLevel.SILVER
+    elif total_spent > 0:
+        return VipLevel.BRONZE
+    else:
+        return VipLevel.NONE
+
+
+def get_vip_cashback_rate(vip_level: VipLevel) -> float:
+    """
+    Отримати відсоток кешбеку для VIP рівня
+
+    Args:
+        vip_level: VIP рівень користувача
+
+    Returns:
+        Відсоток кешбеку (0.0 - 1.0)
+    """
+
+    cashback_rates = {
+        VipLevel.NONE: 0.0,
+        VipLevel.BRONZE: settings.VIP_BRONZE_CASHBACK,
+        VipLevel.SILVER: settings.VIP_SILVER_CASHBACK,
+        VipLevel.GOLD: settings.VIP_GOLD_CASHBACK,
+        VipLevel.DIAMOND: settings.VIP_DIAMOND_CASHBACK
+    }
+
+    return cashback_rates.get(vip_level, 0.0)
+
+
+def get_vip_benefits(vip_level: VipLevel) -> dict:
+    """
+    Отримати переваги для VIP рівня
+
+    Args:
+        vip_level: VIP рівень
+
+    Returns:
+        Словник з перевагами
+    """
+
+    benefits = {
+        VipLevel.NONE: {
+            "cashback": 0,
+            "priority_support": False,
+            "exclusive_content": False,
+            "early_access": False,
+            "bonus_multiplier": 1.0
+        },
+        VipLevel.BRONZE: {
+            "cashback": int(settings.VIP_BRONZE_CASHBACK * 100),
+            "priority_support": False,
+            "exclusive_content": False,
+            "early_access": False,
+            "bonus_multiplier": 1.1
+        },
+        VipLevel.SILVER: {
+            "cashback": int(settings.VIP_SILVER_CASHBACK * 100),
+            "priority_support": True,
+            "exclusive_content": False,
+            "early_access": False,
+            "bonus_multiplier": 1.2
+        },
+        VipLevel.GOLD: {
+            "cashback": int(settings.VIP_GOLD_CASHBACK * 100),
+            "priority_support": True,
+            "exclusive_content": True,
+            "early_access": False,
+            "bonus_multiplier": 1.3
+        },
+        VipLevel.DIAMOND: {
+            "cashback": int(settings.VIP_DIAMOND_CASHBACK * 100),
+            "priority_support": True,
+            "exclusive_content": True,
+            "early_access": True,
+            "bonus_multiplier": 1.5
+        }
+    }
+
+    return benefits.get(vip_level, benefits[VipLevel.NONE])
+
+
+async def calculate_cashback_amount(
+        user_id: int,
+        purchase_amount: float,
+        session: AsyncSession
+) -> int:
+    """
+    Розрахувати суму кешбеку в бонусах
+
+    Args:
+        user_id: ID користувача
+        purchase_amount: Сума покупки в USD
+        session: Сесія бази даних
+
+    Returns:
+        Кількість бонусів кешбеку
+    """
+
+    user = await session.get(User, user_id)
+    if not user:
+        return 0
+
+    cashback_rate = get_vip_cashback_rate(user.vip_level)
+    cashback_usd = purchase_amount * cashback_rate
+    cashback_bonuses = int(cashback_usd * settings.BONUSES_PER_USD)
+
+    return cashback_bonuses

@@ -6,7 +6,7 @@ from sqlalchemy import select, delete
 from database import get_session
 from models.user import User
 from models.favorite import Favorite
-from .auth import get_current_user_dependency
+from .dependencies import get_current_user_dependency
 from typing import List
 
 router = APIRouter()

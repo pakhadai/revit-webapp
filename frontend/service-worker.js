@@ -1,6 +1,6 @@
 // Service Worker для PWA (НАДІЙНА ВЕРСІЯ)
 
-const CACHE_NAME = 'revitbot-cache-v4'; // Оновили версію кешу
+const CACHE_NAME = 'revitbot-cache-v6'; // Оновили версію кешу
 
 // Список файлів, які ми намагатимемося закешувати
 const APP_FILES_TO_CACHE = [

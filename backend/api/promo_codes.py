@@ -6,8 +6,8 @@ from database import get_session
 from models.user import User
 from models.promo_code import PromoCode, DiscountType
 from models.order import Order
-from .auth import get_current_user_dependency
-from .admin import admin_required
+from .dependencies import get_current_user_dependency
+from .dependencies import admin_required
 from typing import List, Optional, Dict
 from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
