@@ -5,6 +5,7 @@ from sqlalchemy import select
 from database import get_session
 from models.user import User
 from config import settings
+from .dependencies import get_current_user_dependency
 from limiter import limiter
 import hashlib
 import hmac
@@ -93,3 +94,23 @@ async def telegram_auth(request: Request, data: dict, session: AsyncSession = De
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/me")
+async def get_me(current_user: User = Depends(get_current_user_dependency)):
+    """
+    Отримати дані поточного користувача на основі JWT токена.
+    """
+    if not current_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "id": current_user.id,
+        "userId": current_user.user_id,
+        "username": current_user.username,
+        "fullName": current_user.full_name,
+        "language": current_user.language_code,
+        "isAdmin": current_user.is_admin,
+        "role": current_user.role,
+        "bonuses": current_user.bonuses
+    }

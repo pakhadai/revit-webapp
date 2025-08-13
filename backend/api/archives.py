@@ -8,6 +8,8 @@ from database import get_session
 from models.archive import Archive
 from pydantic import BaseModel
 
+from config import settings
+
 router = APIRouter()
 
 
@@ -91,25 +93,24 @@ async def get_archives_list(
     result = await session.execute(query.offset(offset).limit(limit))
     archives = result.scalars().all()
 
-    # --- ОСНОВНЕ ВИПРАВЛЕННЯ ТУТ ---
-    base_url = str(request.base_url)
+    # --- ОСНОВНЕ ВИПРАВЛЛЕННЯ ТУТ ---
+    base_url = settings.APP_URL.rstrip('/')  # Використовуємо APP_URL з конфігу
     response_archives = []
 
     for archive in archives:
+        # Створюємо повні шляхи до зображень
         full_image_paths = []
         if archive.image_paths and isinstance(archive.image_paths, list):
             for path in archive.image_paths:
                 if path and not path.startswith(('http://', 'https://')):
-                    full_image_paths.append(f"{base_url}{path}")
+                    full_image_paths.append(f"{base_url}/{path}")  # Додаємо повний шлях
                 elif path:
                     full_image_paths.append(path)
 
-        if not full_image_paths:
-            full_image_paths.append(f"{base_url}media/images/placeholder.png")
-
-        response_archives.append(ArchiveOut.from_orm(archive))
-        # Перезаписуємо шляхи на повні URL
-        response_archives[-1].image_paths = full_image_paths
+        # Створюємо об'єкт для відповіді і перезаписуємо шляхи
+        archive_out = ArchiveOut.from_orm(archive)
+        archive_out.image_paths = full_image_paths if full_image_paths else [f"{base_url}/media/images/placeholder.png"]
+        response_archives.append(archive_out)
 
     return {
         "items": response_archives,

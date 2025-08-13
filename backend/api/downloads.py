@@ -41,11 +41,22 @@ async def request_download(
     if not has_access and archive.archive_type != "free":
         raise HTTPException(status_code=403, detail="Access denied. Please purchase or subscribe.")
 
-    # Отримуємо шлях до файлу
-    file_path = await file_service.get_archive_file_path(archive.code, archive.archive_type)
+    # --- ВИПРАВЛЕННЯ ПОЧИНАЄТЬСЯ ТУТ ---
 
-    if not file_path or not file_path.exists():
-        raise HTTPException(status_code=404, detail="Archive file not found")
+    # 1. Перевіряємо, чи є шлях до файлу в базі даних
+    if not archive.file_path:
+        raise HTTPException(status_code=404, detail="File path is not specified for this archive.")
+
+    # 2. Складаємо повний, абсолютний шлях до файлу
+    # (Path(__file__).parent.parent -> переходить з /api в /backend)
+    file_path = Path(__file__).parent.parent / archive.file_path
+
+    # 3. Перевіряємо, чи існує файл за цим шляхом
+    if not file_path.exists():
+        logger.error(f"Archive file not found at path: {file_path}")
+        raise HTTPException(status_code=404, detail="Archive file not found on disk.")
+
+    # --- КІНЕЦЬ ВИПРАВЛЕННЯ ---
 
     # Отримуємо інформацію про файл
     file_info = await file_service.get_file_info(file_path)
@@ -58,7 +69,7 @@ async def request_download(
     )
 
     # Оновлюємо статистику
-    archive.view_count += 1
+    archive.view_count = (archive.view_count or 0) + 1
     await session.commit()
 
     return {

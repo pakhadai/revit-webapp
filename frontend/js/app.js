@@ -213,6 +213,40 @@
             }
         }
 
+        async loadUserData() {
+            try {
+                // Запитуємо свіжі дані користувача з сервера
+                const userData = await this.api.get('/api/auth/me');
+                if (userData) {
+                    this.user = { ...this.user, ...userData }; // Оновлюємо, зберігаючи існуючі дані
+                    this.storage.set('user', this.user); // Зберігаємо оновлені дані
+                    console.log('User data updated:', this.user);
+
+                    // Оновлюємо UI, якщо адмін-панель має бути видимою
+                    const adminNav = document.getElementById('admin-nav');
+                    if (adminNav) {
+                        adminNav.style.display = this.user.isAdmin ? 'flex' : 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to refresh user data:', error);
+                // Не критична помилка, можна продовжувати з кешованими даними
+            }
+        }
+
+        async loadProducts() {
+            try {
+                // Завантажуємо першу сторінку товарів для кешу
+                const response = await this.api.get('/api/archives/paginated/list?page=1&limit=12', { useCache: true });
+                if (response && response.items) {
+                    this.productsCache = response.items;
+                    console.log('Products pre-cached:', this.productsCache.length);
+                }
+            } catch (error) {
+                console.error('Failed to pre-cache products:', error);
+            }
+        }
+
         async loadPage(page) {
             this.currentPage = page;
             const content = document.getElementById('app-content');

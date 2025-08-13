@@ -201,19 +201,18 @@ Object.assign(window.AdminModule, {
         const formData = {
             code: document.getElementById(prefix + 'code')?.value.trim(),
             title: {
-                ua: title_ua,
-                en: document.getElementById(prefix + 'title_en')?.value.trim() || title_ua
+                ua: title_ua
+                // Поки що не додаємо інші мови, щоб уникнути помилок
             },
             description: {
-                ua: description_ua,
-                en: document.getElementById(prefix + 'description_en')?.value.trim() || description_ua
+                ua: description_ua
             },
             price: parseFloat(document.getElementById(prefix + 'price')?.value),
             discount_percent: parseInt(document.getElementById(prefix + 'discount_percent')?.value) || 0,
             archive_type: document.getElementById(prefix + 'archive_type')?.value,
-            image_paths: JSON.parse(document.getElementById(prefix + 'image_paths_hidden')?.value || '[]'),
-            file_path: document.getElementById(prefix + 'file_path_hidden')?.value,
-            file_size: parseInt(document.getElementById(prefix + 'file_size_hidden')?.value || 0)
+            image_paths: JSON.parse(document.getElementById('image_paths_hidden')?.value || '[]'),
+            file_path: document.getElementById('file_path_hidden')?.value,
+            file_size: parseInt(document.getElementById('file_size_hidden')?.value || 0)
         };
 
         // Валідація

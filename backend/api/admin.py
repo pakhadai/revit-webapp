@@ -12,6 +12,8 @@ from datetime import datetime, timedelta, timezone
 import logging
 import traceback  # <-- Важливий імпорт для діагностики
 
+from ..config import settings
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -25,33 +27,25 @@ def admin_required(current_user: User = Depends(get_current_user_dependency)):
 
 @router.get("/archives")
 async def get_archives_admin(
-        request: Request,  # <-- Додаємо request сюди
         session: AsyncSession = Depends(get_session),
         admin_user: User = Depends(admin_required)
 ):
     """Отримати список всіх архівів для адмін-панелі"""
-
     try:
-        result = await session.execute(
-            select(Archive).order_by(Archive.created_at.desc())
-        )
+        result = await session.execute(select(Archive).order_by(Archive.created_at.desc()))
         archives = result.scalars().all()
 
-        # --- ОСНОВНЕ ВИПРАВЛЕННЯ ТУТ ---
-        base_url = str(request.base_url)  # Отримуємо http://localhost:8001/
+        base_url = settings.APP_URL.rstrip('/') # Використовуємо APP_URL з конфігу
 
         response_data = []
         for archive in archives:
-            image_path = None
             full_image_paths = []
-            if archive.image_paths:
-                if isinstance(archive.image_paths, list) and len(archive.image_paths) > 0:
-                    image_path = archive.image_paths[0]
-                elif isinstance(archive.image_paths, str):
-                    image_path = archive.image_paths
-
-            if not image_path:
-                image_path = "images/icons/icon-192x192.png"
+            if archive.image_paths and isinstance(archive.image_paths, list):
+                for path in archive.image_paths:
+                    if path and not path.startswith(('http://', 'https://')):
+                        full_image_paths.append(f"{base_url}/{path}")
+                    elif path:
+                        full_image_paths.append(path)
 
             response_data.append({
                 "id": archive.id,
@@ -61,8 +55,7 @@ async def get_archives_admin(
                 "price": float(archive.price) if archive.price else 0,
                 "discount_percent": archive.discount_percent or 0,
                 "archive_type": archive.archive_type,
-                "image_path": image_path,  # <-- Тепер тут ПОВНИЙ URL
-                "image_paths": full_image_paths,  # <-- І тут теж повні URL
+                "image_paths": full_image_paths, # <-- Тепер тут повні URL
                 "file_path": archive.file_path,
                 "file_size": archive.file_size,
                 "purchase_count": archive.purchase_count or 0,
@@ -71,9 +64,7 @@ async def get_archives_admin(
                 "ratings_count": archive.ratings_count if hasattr(archive, 'ratings_count') else 0,
                 "created_at": archive.created_at.isoformat() if archive.created_at else None
             })
-
         return response_data
-
     except Exception as e:
         logger.error(f"Error loading archives for admin: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

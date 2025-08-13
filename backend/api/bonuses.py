@@ -1,94 +1,137 @@
-# backend/api/bonuses.py - ВИПРАВЛЕНА ВЕРСІЯ
-
-from fastapi import APIRouter, Depends, HTTPException, status
+# backend/api/bonuses.py
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import timedelta
+from datetime import date, timedelta
+import random
 
-# Локальні імпорти
 from database import get_session
 from models.user import User
-from models.bonus import DailyBonus
+from models.bonus import DailyBonus, BonusTransaction, BonusTransactionType
 from utils.timezone import get_kyiv_time
-
-# --- ОСНОВНЕ ВИПРАВЛЕННЯ ТУТ ---
-# Імпортуємо правильну функцію `get_current_user_dependency`
 from .dependencies import get_current_user_dependency
+from config import settings
 
 router = APIRouter()
 
+# Винагороди за стрік
+STREAK_REWARDS = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 7, 7: 10}
 
-async def _get_bonus_status(user_id: int, session: AsyncSession):
-    """Асинхронно перевіряє, чи може користувач отримати щоденний бонус."""
-    now = get_kyiv_time()
-    result = await session.execute(
-        select(DailyBonus).filter(DailyBonus.user_id == user_id)
-    )
-    last_claim = result.scalar_one_or_none()
+def get_reward_for_day(day: int) -> int:
+    return STREAK_REWARDS.get(day, 10)
 
-    if last_claim:
-        # Переконуємось, що last_claimed_at має часову зону
-        last_claimed_at = last_claim.last_claimed_at
-        if hasattr(last_claimed_at, 'tzinfo') and last_claimed_at.tzinfo is None:
-            # Якщо це datetime.date, то просто порівнюємо дати
-            if isinstance(last_claimed_at, datetime.date) and not isinstance(last_claimed_at, datetime):
-                if last_claimed_at >= now.date():
-                    return {"can_claim": False, "time_left": 86400}  # Приблизний час до наступного дня
-            else:
-                # Це datetime без tzinfo
-                last_claimed_at = KYIV_TZ.localize(last_claimed_at)
-
-        time_since_claim = now - last_claimed_at
-        if time_since_claim < timedelta(days=1):
-            time_left = timedelta(days=1) - time_since_claim
-            return {"can_claim": False, "time_left": int(time_left.total_seconds())}
-
-    return {"can_claim": True, "time_left": 0}
-
-
-@router.get("/daily-bonus", summary="Отримати статус щоденного бонусу")
+@router.get("/daily-bonus")
 async def get_daily_bonus_status(
-        # Використовуємо правильну назву функції
         current_user: User = Depends(get_current_user_dependency),
         session: AsyncSession = Depends(get_session)
 ):
-    """Кінцева точка API для перевірки статусу щоденного бонусу."""
-    return await _get_bonus_status(current_user.id, session)
+    today = get_kyiv_time().date()
 
+    result = await session.execute(select(DailyBonus).where(DailyBonus.user_id == current_user.id))
+    bonus_status = result.scalar_one_or_none()
 
-@router.post("/daily-bonus", summary="Отримати щоденний бонус")
+    if not bonus_status:
+        return {
+            "can_claim": True, "current_streak": 0, "next_reward": get_reward_for_day(1),
+            "streak_broken": False, "can_restore": False
+        }
+
+    can_claim = bonus_status.last_claim_date is None or bonus_status.last_claim_date < today
+
+    time_since_last_claim = today - (bonus_status.last_claim_date or today)
+    streak_broken = time_since_last_claim > timedelta(days=1)
+
+    current_streak = 0 if streak_broken else bonus_status.streak_count
+    next_reward = get_reward_for_day(current_streak + 1)
+
+    can_restore = streak_broken and not bonus_status.streak_restored and current_user.bonuses >= settings.DAILY_BONUS_STREAK_RESTORE_COST
+
+    return {
+        "can_claim": can_claim,
+        "current_streak": current_streak,
+        "next_reward": next_reward,
+        "streak_broken": streak_broken,
+        "can_restore": can_restore,
+        "restore_cost": settings.DAILY_BONUS_STREAK_RESTORE_COST
+    }
+
+@router.post("/daily/claim")
 async def claim_daily_bonus(
-        # І тут також використовуємо правильну назву
+        data: dict,
         current_user: User = Depends(get_current_user_dependency),
         session: AsyncSession = Depends(get_session)
 ):
-    """Кінцева точка API для отримання щоденного бонусу."""
-    status_data = await _get_bonus_status(current_user.id, session)
-    if not status_data['can_claim']:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bonus already claimed today.")
+    status = await get_daily_bonus_status(current_user, session)
+    if not status["can_claim"]:
+        raise HTTPException(status_code=400, detail="Bonus already claimed today.")
 
-    bonus_amount = 10  # TODO: Зробити динамічним
+    slot_result = data.get("slot_result", [])
+    base_reward = status["next_reward"]
+    jackpot_bonus = 0
+    is_jackpot = len(slot_result) == 3 and slot_result[0] == slot_result[1] == slot_result[2]
 
-    # Використовуємо існуючий об'єкт користувача
-    user_to_update = current_user
-    user_to_update.bonuses += bonus_amount
+    if is_jackpot:
+        jackpot_bonus = settings.DAILY_BONUS_SLOT_JACKPOT
 
-    result = await session.execute(
-        select(DailyBonus).filter(DailyBonus.user_id == user_to_update.id)
-    )
-    last_claim = result.scalar_one_or_none()
-    now = get_kyiv_time()
+    total_reward = base_reward + jackpot_bonus
 
-    if last_claim:
-        last_claim.last_claim_date = now.date()
-        last_claim.streak_count += 1  # TODO: Додати логіку перевірки стріку
-    else:
-        new_claim = DailyBonus(user_id=user_to_update.id, last_claim_date=now.date(), streak_count=1)
-        session.add(new_claim)
+    # Оновлюємо або створюємо запис DailyBonus
+    result = await session.execute(select(DailyBonus).where(DailyBonus.user_id == current_user.id))
+    bonus_status = result.scalar_one_or_none()
 
-    # Мерджимо зміни в сесію
-    session.add(user_to_update)
+    if not bonus_status:
+        bonus_status = DailyBonus(user_id=current_user.id, streak_count=0)
+        session.add(bonus_status)
+
+    new_streak = status["current_streak"] + 1
+    bonus_status.streak_count = new_streak
+    bonus_status.last_claim_date = get_kyiv_time().date()
+    bonus_status.streak_restored = False
+    bonus_status.total_claimed += total_reward
+    bonus_status.total_claims += 1
+    if is_jackpot:
+        bonus_status.slot_wins += 1
+
+    # Нараховуємо бонуси
+    current_user.bonuses += total_reward
+    session.add(BonusTransaction(
+        user_id=current_user.id, amount=total_reward, balance_after=current_user.bonuses,
+        type=BonusTransactionType.DAILY_CLAIM, description=f"Daily bonus day {new_streak}. Jackpot: {is_jackpot}"
+    ))
+
     await session.commit()
-    await session.refresh(user_to_update)
 
-    return {"message": "Bonus claimed successfully", "new_balance": user_to_update.bonuses}
+    return {
+        "success": True, "total_reward": total_reward, "base_reward": base_reward,
+        "jackpot": is_jackpot, "jackpot_bonus": jackpot_bonus,
+        "new_balance": current_user.bonuses, "streak_day": new_streak
+    }
+
+@router.post("/daily/restore-streak")
+async def restore_streak(
+        current_user: User = Depends(get_current_user_dependency),
+        session: AsyncSession = Depends(get_session)
+):
+    status = await get_daily_bonus_status(current_user, session)
+    if not status["can_restore"]:
+        raise HTTPException(status_code=400, detail="Cannot restore streak.")
+
+    cost = settings.DAILY_BONUS_STREAK_RESTORE_COST
+
+    result = await session.execute(select(DailyBonus).where(DailyBonus.user_id == current_user.id))
+    bonus_status = result.scalar_one()
+
+    # Списуємо бонуси
+    current_user.bonuses -= cost
+    session.add(BonusTransaction(
+        user_id=current_user.id, amount=-cost, balance_after=current_user.bonuses,
+        type=BonusTransactionType.STREAK_RESTORE_FEE, description="Streak restore fee"
+    ))
+
+    # Відновлюємо
+    bonus_status.last_claim_date = get_kyiv_time().date() - timedelta(days=1)
+    bonus_status.streak_restored = True
+
+    await session.commit()
+
+    return {"success": True, "new_balance": current_user.bonuses, "message": "Streak restored."}
