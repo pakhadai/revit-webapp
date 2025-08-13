@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 import logging
 import traceback  # <-- Важливий імпорт для діагностики
 
-from ..config import settings
+from config import settings
 
 logger = logging.getLogger(__name__)
 
