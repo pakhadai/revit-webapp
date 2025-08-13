@@ -39,9 +39,11 @@ window.CatalogModule = {
         // --- ОСНОВНЕ ВИПРАВЛЕННЯ ДЛЯ КАТАЛОГУ ---
         // Перевіряємо, чи є зображення. Якщо ні - показуємо емодзі.
         const imagePath = image_paths && image_paths.length > 0 ? image_paths[0] : null;
-        const imageAreaHtml = imagePath
-            ? `<img src="${imagePath}" alt="${displayTitle}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">`
+        const fullImagePath = imagePath && !imagePath.startsWith('http') ? `${app.api.baseURL}/${imagePath}` : imagePath;
+        const imageAreaHtml = fullImagePath
+            ? `<img src="${fullImagePath}" alt="${displayTitle}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">`
             : `<div style="font-size: 40px;">${archive_type === 'premium' ? '💎' : '📦'}</div>`;
+
 
         let buttonHtml;
         if (isInCart) {

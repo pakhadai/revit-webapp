@@ -64,14 +64,15 @@ window.ProductDetailsModule = {
         const modalId = 'product-details-modal';
         this.close();
 
-        // --- ВИПРАВЛЕННЯ: Правильно отримуємо шлях до зображення ---
         const imagePath = archive.image_paths && archive.image_paths.length > 0 ? archive.image_paths[0] : null;
+        const fullImagePath = imagePath && !imagePath.startsWith('http') ? `${window.app.api.baseURL}/${imagePath}` : imagePath;
 
-        // Визначаємо, чи є реальне зображення, чи потрібно показати емодзі
-        const hasRealImage = imagePath && !imagePath.includes('placeholder.png');
+        // Визначаємо, чи є реальне зображення
+        const hasRealImage = fullImagePath && !fullImagePath.includes('placeholder.png');
         const imageAreaHtml = hasRealImage
-            ? `<img src="${imagePath}" alt="${displayTitle}" style="width: 100%; height: 180px; border-radius: 8px; object-fit: cover; margin-bottom: 20px; cursor: zoom-in;" onclick="ProductDetailsModule.showImageLightbox('${imagePath}')">`
+            ? `<img src="${fullImagePath}" alt="${displayTitle}" style="width: 100%; height: 180px; border-radius: 8px; object-fit: cover; margin-bottom: 20px; cursor: zoom-in;" onclick="ProductDetailsModule.showImageLightbox('${fullImagePath}')">`
             : `<div style="height: 180px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">${archive.archive_type === 'premium' ? '💎' : '📦'}</div>`;
+
         const modalHtml = `
             <div class="modal-overlay" id="${modalId}" onclick="if(event.target.id === '${modalId}') ProductDetailsModule.close()">
                 <div class="modal-content">

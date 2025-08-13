@@ -219,34 +219,39 @@ window.AdminModule = {
                             </button>
                         </div>
                     ` : `
-                        <div class="archives-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+                        <div class="archives-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
                             ${archives.map(archive => {
                                 const title = archive.title?.ua || archive.title?.en || archive.code;
-                                // --- CORRECTED PLACEHOLDER PATH ---
-                                const image = archive.image_path || 'images/icons/icon-192x192.png';
                                 const price = archive.price || 0;
 
+                                // ВИПРАВЛЕННЯ: image_paths замість image_path (це масив!)
+                                const hasImage = archive.image_paths && archive.image_paths.length > 0;
+                                const imagePath = hasImage ? `${window.app.api.baseURL}/${archive.image_paths[0]}` : null;
+
                                 return `
-                                    <div class="archive-card" style="background: var(--tg-theme-bg-color); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                                        <img src="${image}" alt="${title}"
-                                             style="width: 100%; height: 200px; object-fit: cover;"
-                                             onerror="this.onerror=null; this.src='images/icons/icon-192x192.png';">
-                                        <div style="padding: 15px;">
-                                            <h4 style="margin: 0 0 8px;">${title}</h4>
-                                            <p style="margin: 0 0 8px; color: var(--tg-theme-hint-color); font-size: 14px;">
-                                                Код: ${archive.code}
+                                    <div class="archive-card" style="background: var(--tg-theme-bg-color); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                        ${imagePath
+                                            ? `<img src="${imagePath}" alt="${title}" style="width: 100%; height: 120px; object-fit: cover;">`
+                                            : `<div style="width: 100%; height: 120px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); font-size: 40px;">
+                                                ${archive.archive_type === 'premium' ? '💎' : '📦'}
+                                            </div>`
+                                        }
+                                        <div style="padding: 10px;">
+                                            <h5 style="margin: 0 0 5px; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${title}</h5>
+                                            <p style="margin: 0 0 5px; color: var(--tg-theme-hint-color); font-size: 11px;">
+                                                ${archive.code}
                                             </p>
-                                            <p style="margin: 0 0 12px; font-size: 18px; font-weight: bold; color: var(--primary-color);">
+                                            <p style="margin: 0 0 8px; font-size: 16px; font-weight: bold; color: var(--primary-color);">
                                                 $${price}
                                             </p>
-                                            <div style="display: flex; gap: 10px;">
+                                            <div style="display: flex; gap: 5px;">
                                                 <button onclick="window.AdminModule.showEditForm(window.app, ${archive.id})"
-                                                        style="flex: 1; padding: 8px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer;">
-                                                    ✏️ Редагувати
+                                                        style="flex: 1; padding: 6px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                                    ✏️
                                                 </button>
                                                 <button onclick="window.AdminModule.deleteArchive(window.app, ${archive.id})"
-                                                        style="flex: 1; padding: 8px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                                                    🗑️ Видалити
+                                                        style="flex: 1; padding: 6px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                                    🗑️
                                                 </button>
                                             </div>
                                         </div>

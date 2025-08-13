@@ -11,7 +11,7 @@
     class RevitWebApp {
         constructor() {
             this.storage = new Storage();
-            this.api = new Api(this.storage);
+            this.api = new Api(this.storage, 'http://localhost:8001');
             this.tg = new TelegramWebApp();
             this.currentPage = 'home';
             this.user = null;
@@ -30,39 +30,77 @@
                 this.handleConnectionChange();
                 this.setupUI();
                 await this.loadTranslations();
-                await this.authenticate();
 
-                // Завантажуємо модулі, що залежать від користувача
-                if (!window.FavoritesModule) await this.loadScript('js/modules/favorites.js');
-                await window.FavoritesModule.init(this);
-                if (!window.RatingsModule) await this.loadScript('js/modules/ratings.js');
-                await window.RatingsModule.init(this);
-                if (!window.NotificationsModule) await this.loadScript('js/modules/notifications.js');
-                await window.NotificationsModule.init(this);
-                if (!window.CartModule) await this.loadScript('js/modules/cart.js');
-                await window.CartModule.init(this);
-                if (!window.ResponsiveModule) await this.loadScript('js/modules/responsive.js');
-                window.ResponsiveModule.init();
-                this.setupPullToRefresh();
+                // Аутентифікація та отримання результату
+                const authResult = await this.authenticate();
 
-                if (this.user?.isAdmin) await this.preloadAdminModules();
+                // Перевіряємо успішність аутентифікації
+                if (authResult && authResult.success) {
+                    this.api.setToken(authResult.token);
+                    this.user = authResult.user;
 
-                const initialPage = window.location.pathname.replace('/', '') || 'home';
-                await this.navigateTo(initialPage, true); // true - щоб не додавати в історію
+                    // Перевірка на нового користувача
+                    if (!window.OnboardingModule) {
+                        await this.loadScript('js/modules/onboarding.js');
+                    }
 
-                // <-- ЗМІНА: Обробка кнопок "назад/вперед" у браузері
-                window.onpopstate = (event) => {
-                    const page = event.state?.page || 'home';
-                    this.loadPage(page);
-                    this.updateActiveNav(page);
-                };
+                    const isNewUser = await window.OnboardingModule.checkIfNewUser(this);
+                    if (isNewUser) {
+                        // Показуємо онбординг для нових
+                        await window.OnboardingModule.showWelcome(this);
+                    } else {
+                        // Звичайне завантаження для існуючих
+                        await this.loadUserData();
+                        await this.loadProducts();
+                    }
 
-                this.updateCartBadge();
+                    // Завантажуємо модулі після аутентифікації
+                    if (!window.FavoritesModule) await this.loadScript('js/modules/favorites.js');
+                    await window.FavoritesModule.init(this);
+
+                    if (!window.RatingsModule) await this.loadScript('js/modules/ratings.js');
+                    await window.RatingsModule.init(this);
+
+                    if (!window.NotificationsModule) await this.loadScript('js/modules/notifications.js');
+                    await window.NotificationsModule.init(this);
+
+                    if (!window.CartModule) await this.loadScript('js/modules/cart.js');
+                    await window.CartModule.init(this);
+
+                    if (!window.ResponsiveModule) await this.loadScript('js/modules/responsive.js');
+                    window.ResponsiveModule.init();
+
+                    this.setupPullToRefresh();
+
+                    // Адмін модулі
+                    if (this.user?.isAdmin) {
+                        await this.preloadAdminModules();
+                    }
+
+                    // Навігація
+                    const initialPage = window.location.pathname.replace('/', '') || 'home';
+                    await this.navigateTo(initialPage, true);
+
+                    // Обробник кнопки "назад"
+                    window.onpopstate = (event) => {
+                        const page = event.state?.page || 'home';
+                        this.loadPage(page);
+                        this.updateActiveNav(page);
+                    };
+
+                    this.updateCartBadge();
+                } else {
+                    // Якщо аутентифікація не вдалася
+                    console.error('Authentication failed');
+                    this.showError('Failed to authenticate');
+                }
+
             } catch (error) {
                 console.error('❌ Init error:', error);
                 this.showError('Failed to initialize app');
             }
         }
+
 
         async navigateTo(page, replace = false) {
             await this.loadPage(page);
@@ -104,22 +142,29 @@
         async authenticate() {
             try {
                 const initData = this.tg.getInitData();
-                const response = await this.api.post('/api/auth/telegram', { initData });
-                if (response.success && response.token) {
-                    this.user = response.user;
-                    this.storage.set('user', this.user);
-                    this.storage.set('token', response.token);
-                    this.api.setToken(response.token);
-                    if (this.user.isAdmin) document.getElementById('admin-nav').style.display = 'flex';
+                const authResult = await this.api.post('/api/auth/telegram', { initData });
+
+                if (authResult.success) {
+                    this.storage.set('token', authResult.token);
+                    this.storage.set('user', authResult.user);
+                    return authResult; // ВАЖЛИВО: повертаємо результат
                 }
+
+                return { success: false };
             } catch (error) {
+                console.error('Auth error:', error);
+
+                // Спробуємо використати збережені дані
                 const savedToken = this.storage.get('token');
                 const savedUser = this.storage.get('user');
+
                 if (savedToken && savedUser) {
                     this.api.setToken(savedToken);
                     this.user = savedUser;
-                    if (this.user.isAdmin) document.getElementById('admin-nav').style.display = 'flex';
+                    return { success: true, token: savedToken, user: savedUser };
                 }
+
+                return { success: false };
             }
         }
 
@@ -211,6 +256,7 @@
 
         async getProfilePage() {
             if (!this.user) return this.showError('User not authenticated.');
+
             // Завантажуємо всі необхідні модулі для сторінки профілю
             if (!window.DownloadsModule) await this.loadScript('js/modules/downloads.js');
             if (!window.FavoritesModule) await this.loadScript('js/modules/favorites.js');
@@ -221,24 +267,119 @@
             const { fullName, username } = this.user;
             const vipBlock = await window.VipModule.renderVipBlock(this);
             const referralsBlock = await window.ReferralsModule.renderReferralBlock(this);
-            return `<div class="profile-page p-3">
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 25px; background: var(--tg-theme-secondary-bg-color); padding: 15px; border-radius: 12px;">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=667eea&color=fff&size=64" style="width: 64px; height: 64px; border-radius: 50%;">
-                        <div>
-                            <h2 style="margin: 0 0 5px;">${fullName}</h2>
-                            <p style="margin: 0; color: var(--tg-theme-hint-color);">@${username || 'not_set'}</p>
+
+            return `
+                <div class="profile-page p-3">
+                    <!-- Профіль користувача -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 16px; color: white;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div style="width: 64px; height: 64px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold;">
+                                ${fullName.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <h2 style="margin: 0 0 5px; color: white;">${fullName}</h2>
+                                <p style="margin: 0; color: rgba(255,255,255,0.8);">@${username || 'not_set'}</p>
+                            </div>
                         </div>
                     </div>
+
+                    <!-- VIP блок -->
+                    ${vipBlock}
+
+                    <!-- Реферальний блок -->
+                    ${referralsBlock}
+
+                    <!-- Основні кнопки з емодзі та градієнтами -->
+                    <div style="margin-top: 30px;">
+                        <h3 style="margin-bottom: 15px; color: var(--tg-theme-text-color);">📱 Мої розділи</h3>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+
+                            <!-- Мої завантаження -->
+                            <button onclick="DownloadsModule.showDownloads(window.app)"
+                                    style="position: relative; overflow: hidden; padding: 20px 15px; background: linear-gradient(135deg, #00C9FF 0%, #92FE9D 100%); border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s;">
+                                <div style="position: relative; z-index: 1;">
+                                    <div style="font-size: 32px; margin-bottom: 8px;">📥</div>
+                                    <div style="font-size: 14px; font-weight: 600; color: white;">Завантаження</div>
+                                </div>
+                            </button>
+
+                            <!-- Мої вибрані -->
+                            <button onclick="window.FavoritesModule.showFavoritesPage(window.app)"
+                                    style="position: relative; overflow: hidden; padding: 20px 15px; background: linear-gradient(135deg, #FC466B 0%, #3F5EFB 100%); border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s;">
+                                <div style="position: relative; z-index: 1;">
+                                    <div style="font-size: 32px; margin-bottom: 8px;">❤️</div>
+                                    <div style="font-size: 14px; font-weight: 600; color: white;">Вибрані</div>
+                                </div>
+                            </button>
+
+                            <!-- Історія переглядів -->
+                            <button onclick="window.HistoryModule.showHistoryPage(window.app)"
+                                    style="position: relative; overflow: hidden; padding: 20px 15px; background: linear-gradient(135deg, #FDBB2D 0%, #22C1C3 100%); border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s;">
+                                <div style="position: relative; z-index: 1;">
+                                    <div style="font-size: 32px; margin-bottom: 8px;">🕒</div>
+                                    <div style="font-size: 14px; font-weight: 600; color: white;">Історія</div>
+                                </div>
+                            </button>
+
+                            <!-- Сповіщення -->
+                            <button onclick="window.app.loadScript('js/modules/notifications.js').then(() => window.NotificationsModule.showNotifications(window.app))"
+                                    style="position: relative; overflow: hidden; padding: 20px 15px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s;">
+                                <div style="position: relative; z-index: 1;">
+                                    <div style="font-size: 32px; margin-bottom: 8px;">🔔</div>
+                                    <div style="font-size: 14px; font-weight: 600; color: white;">Сповіщення</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Додаткові функції -->
+                    <div style="margin-top: 25px;">
+                        <h3 style="margin-bottom: 15px; color: var(--tg-theme-text-color);">⚙️ Додатково</h3>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+
+                            <!-- Мова -->
+                            <button onclick="window.app.showLanguageModal()"
+                                    style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 10px; cursor: pointer;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span style="font-size: 20px;">🌐</span>
+                                    <span style="font-size: 14px;">Мова інтерфейсу</span>
+                                </div>
+                                <span style="color: var(--tg-theme-hint-color); font-size: 12px;">${this.currentLang === 'ua' ? 'Українська' : 'English'}</span>
+                            </button>
+
+                            <!-- Підтримка -->
+                            <button onclick="window.open('https://t.me/revitbot_support', '_blank')"
+                                    style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 10px; cursor: pointer;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span style="font-size: 20px;">💬</span>
+                                    <span style="font-size: 14px;">Підтримка</span>
+                                </div>
+                                <span style="color: var(--tg-theme-hint-color);">→</span>
+                            </button>
+
+                            <!-- Про додаток -->
+                            <button onclick="window.app.showAboutModal()"
+                                    style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 10px; cursor: pointer;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span style="font-size: 20px;">ℹ️</span>
+                                    <span style="font-size: 14px;">Про додаток</span>
+                                </div>
+                                <span style="color: var(--tg-theme-hint-color); font-size: 12px;">v1.0.0</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <style>
+                        .profile-page button:hover {
+                            transform: translateY(-2px);
+                            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                        }
+                        .profile-page button:active {
+                            transform: translateY(0);
+                        }
+                    </style>
                 </div>
-                ${vipBlock}
-                ${referralsBlock}
-                <div style="margin-top: 30px; display: flex; flex-direction: column; gap: 15px;">
-                    <button onclick="window.HistoryModule.showHistoryPage(window.app)" ...>🕒 Історія переглядів</button>
-                    <button onclick="window.FavoritesModule.showFavoritesPage(window.app)" ...>❤️ Мої вибрані</button>
-                    <button onclick="DownloadsModule.showDownloads(window.app)" ...>📥 Мої завантаження</button>
-                </div>
-            </div>`;
+            `;
         }
 
         async getAdminPage() {

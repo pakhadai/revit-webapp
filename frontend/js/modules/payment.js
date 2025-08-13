@@ -78,12 +78,25 @@ window.PaymentModule = {
                             </div>
                         </div>
 
-                        <!-- Кнопка оплати -->
-                        <a href="${payment.payment_url}"
-                           target="_blank"
-                           style="display: block; width: 100%; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-align: center; text-decoration: none; border-radius: 10px; font-size: 16px; font-weight: bold; margin-bottom: 15px;">
-                            🔗 ${t('payment.openPaymentPage')}
-                        </a>
+                        <!-- Кнопки оплати -->
+                        ${window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? `
+                            <!-- ТЕСТОВИЙ РЕЖИМ - симуляція оплати -->
+                            <button onclick="PaymentModule.simulatePayment(true)"
+                                    style="width: 100%; padding: 15px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; margin-bottom: 10px; cursor: pointer;">
+                                ✅ ТЕСТ: Успішна оплата
+                            </button>
+                            <button onclick="PaymentModule.simulatePayment(false)"
+                                    style="width: 100%; padding: 15px; background: linear-gradient(135deg, #f44336 0%, #da190b 100%); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; margin-bottom: 10px; cursor: pointer;">
+                                ❌ ТЕСТ: Невдала оплата
+                            </button>
+                        ` : `
+                            <!-- РЕАЛЬНА ОПЛАТА -->
+                            <a href="${payment.payment_url}"
+                               target="_blank"
+                               style="display: block; width: 100%; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-align: center; text-decoration: none; border-radius: 10px; font-size: 16px; font-weight: bold; margin-bottom: 15px;">
+                                🔗 ${t('payment.openPaymentPage')}
+                            </a>
+                        `}
 
                         <!-- Статус -->
                         <div id="payment-status" style="background: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 15px;">
@@ -412,5 +425,68 @@ window.PaymentModule = {
     closeSuccess() {
         const success = document.getElementById('payment-success');
         if (success) success.remove();
+    },
+
+    // Симуляція оплати для тестування
+    async simulatePayment(success) {
+        const app = window.app;
+        const t = (key) => app.t(key);
+
+        if (!this.currentPayment) return;
+
+        // Показуємо процес оплати
+        const statusEl = document.getElementById('status-text');
+        if (statusEl) {
+            statusEl.innerHTML = '⏳ Симуляція оплати...';
+            statusEl.style.color = '#ff9800';
+        }
+
+        // Затримка для реалістичності
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        try {
+            // Відправляємо на бекенд симуляцію
+            const response = await app.api.post('/api/payments/simulate', {
+                payment_id: this.currentPayment.payment_id,
+                status: success ? 'completed' : 'failed'
+            });
+
+            if (response.success) {
+                if (success) {
+                    // Успішна оплата
+                    if (statusEl) {
+                        statusEl.innerHTML = '✅ ' + t('payment.completed');
+                        statusEl.style.color = '#4CAF50';
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+
+                    app.tg.showAlert(t('payment.successMessage'));
+
+                    // Очищаємо кошик якщо це замовлення
+                    if (this.currentPayment.type === 'order') {
+                        app.cart = [];
+                        app.storage.set('cart', []);
+                        app.promoCode = null;
+                    }
+
+                    this.closeModal();
+
+                    // Переходимо на сторінку завантажень
+                    await app.loadPage('downloads');
+
+                } else {
+                    // Невдала оплата
+                    if (statusEl) {
+                        statusEl.innerHTML = '❌ ' + t('payment.failed');
+                        statusEl.style.color = '#f44336';
+                    }
+
+                    app.tg.showAlert(t('payment.failedMessage'));
+                }
+            }
+        } catch (error) {
+            app.tg.showAlert(`❌ Помилка симуляції: ${error.message}`);
+        }
     }
 };

@@ -480,3 +480,74 @@ async def get_payment_history(
             for p in payments
         ]
     }
+
+
+@router.post("/simulate")
+async def simulate_payment(
+        data: dict,
+        current_user: User = Depends(get_current_user_dependency),
+        session: AsyncSession = Depends(get_session)
+):
+    """Симуляція оплати для тестування (тільки в DEV режимі)"""
+
+    # Дозволяємо тільки в режимі розробки
+    if not settings.DEV_MODE:
+        raise HTTPException(status_code=403, detail="Simulation only available in dev mode")
+
+    payment_id = data.get("payment_id")
+    status = data.get("status", "completed")
+
+    # Знаходимо платіж
+    result = await session.execute(
+        select(Payment).where(
+            Payment.payment_id == payment_id,
+            Payment.user_id == current_user.id
+        )
+    )
+    payment = result.scalar_one_or_none()
+
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    # Оновлюємо статус
+    old_status = payment.status
+    payment.status = status
+
+    if status == "completed" and old_status != "completed":
+        payment.completed_at = datetime.now(timezone.utc)
+
+        # Обробляємо залежно від типу
+        if payment.payment_data.get("type") == "order":
+            # Надаємо доступ до архівів
+            order = await session.get(Order, payment.order_id)
+            if order:
+                order.status = "completed"
+                order.completed_at = datetime.utcnow()
+
+                # Надаємо доступ до товарів
+                items_result = await session.execute(
+                    select(OrderItem).where(OrderItem.order_id == order.id)
+                )
+                for item in items_result.scalars().all():
+                    # Перевіряємо чи вже є доступ
+                    existing = await session.execute(
+                        select(ArchivePurchase).where(
+                            ArchivePurchase.user_id == current_user.id,
+                            ArchivePurchase.archive_id == item.archive_id
+                        )
+                    )
+                    if not existing.scalar_one_or_none():
+                        purchase = ArchivePurchase(
+                            user_id=current_user.id,
+                            archive_id=item.archive_id,
+                            price_paid=item.price
+                        )
+                        session.add(purchase)
+
+    await session.commit()
+
+    return {
+        "success": True,
+        "status": status,
+        "message": f"Payment simulated as {status}"
+    }
