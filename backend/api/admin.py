@@ -1,6 +1,6 @@
 # backend/api/admin.py - ДІАГНОСТИЧНА ВЕРСІЯ
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from database import get_session
@@ -25,6 +25,7 @@ def admin_required(current_user: User = Depends(get_current_user_dependency)):
 
 @router.get("/archives")
 async def get_archives_admin(
+        request: Request,  # <-- Додаємо request сюди
         session: AsyncSession = Depends(get_session),
         admin_user: User = Depends(admin_required)
 ):
@@ -36,11 +37,13 @@ async def get_archives_admin(
         )
         archives = result.scalars().all()
 
-        # Формуємо відповідь
+        # --- ОСНОВНЕ ВИПРАВЛЕННЯ ТУТ ---
+        base_url = str(request.base_url)  # Отримуємо http://localhost:8001/
+
         response_data = []
         for archive in archives:
-            # Безпечне отримання першого зображення
             image_path = None
+            full_image_paths = []
             if archive.image_paths:
                 if isinstance(archive.image_paths, list) and len(archive.image_paths) > 0:
                     image_path = archive.image_paths[0]
@@ -53,17 +56,17 @@ async def get_archives_admin(
             response_data.append({
                 "id": archive.id,
                 "code": archive.code,
-                "title": archive.title if archive.title else {},
-                "description": archive.description if archive.description else {},
+                "title": archive.title or {},
+                "description": archive.description or {},
                 "price": float(archive.price) if archive.price else 0,
-                "discount_percent": archive.discount_percent if archive.discount_percent else 0,
+                "discount_percent": archive.discount_percent or 0,
                 "archive_type": archive.archive_type,
-                "image_path": image_path,  # Одне зображення для картки
-                "image_paths": archive.image_paths if archive.image_paths else [],
+                "image_path": image_path,  # <-- Тепер тут ПОВНИЙ URL
+                "image_paths": full_image_paths,  # <-- І тут теж повні URL
                 "file_path": archive.file_path,
                 "file_size": archive.file_size,
-                "purchase_count": archive.purchase_count if archive.purchase_count else 0,
-                "view_count": archive.view_count if archive.view_count else 0,
+                "purchase_count": archive.purchase_count or 0,
+                "view_count": archive.view_count or 0,
                 "average_rating": archive.average_rating if hasattr(archive, 'average_rating') else 0,
                 "ratings_count": archive.ratings_count if hasattr(archive, 'ratings_count') else 0,
                 "created_at": archive.created_at.isoformat() if archive.created_at else None
@@ -72,7 +75,7 @@ async def get_archives_admin(
         return response_data
 
     except Exception as e:
-        logger.error(f"Error loading archives: {str(e)}")
+        logger.error(f"Error loading archives for admin: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/dashboard")

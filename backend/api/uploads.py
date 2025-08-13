@@ -67,7 +67,7 @@ async def upload_images(
             continue
 
         filename = f"{uuid.uuid4()}{file_ext}"
-        path = f"{UPLOAD_DIR}/images/{filename}"
+        path = f"media/images/{filename}"
 
         with open(path, 'wb') as f:
             f.write(contents)

@@ -94,7 +94,7 @@ os.makedirs("media/images", exist_ok=True)
 
 # Монтуємо тільки якщо папка існує
 if os.path.exists("media"):
-    app.mount("/media", StaticFiles(directory="media"), name="media")
+    app.mount("/media", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "media")), name="media")
 
 # --- CORS MIDDLEWARE ---
 app.add_middleware(

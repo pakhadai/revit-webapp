@@ -70,9 +70,8 @@ window.ProductDetailsModule = {
         // Визначаємо, чи є реальне зображення, чи потрібно показати емодзі
         const hasRealImage = imagePath && !imagePath.includes('placeholder.png');
         const imageAreaHtml = hasRealImage
-            ? `<img src="${imagePath}" alt="${displayTitle}" style="width: 100%; height: 180px; border-radius: 8px; object-fit: cover; margin-bottom: 20px;">`
+            ? `<img src="${imagePath}" alt="${displayTitle}" style="width: 100%; height: 180px; border-radius: 8px; object-fit: cover; margin-bottom: 20px; cursor: zoom-in;" onclick="ProductDetailsModule.showImageLightbox('${imagePath}')">`
             : `<div style="height: 180px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">${archive.archive_type === 'premium' ? '💎' : '📦'}</div>`;
-
         const modalHtml = `
             <div class="modal-overlay" id="${modalId}" onclick="if(event.target.id === '${modalId}') ProductDetailsModule.close()">
                 <div class="modal-content">
@@ -138,5 +137,22 @@ window.ProductDetailsModule = {
     close() {
         const modal = document.getElementById('product-details-modal');
         if (modal) modal.remove();
-    }
+    },
+
+    showImageLightbox(imageUrl) {
+        const lightbox = document.createElement('div');
+        lightbox.className = 'lightbox-overlay';
+        lightbox.onclick = () => lightbox.remove(); // Закриття по кліку на фон
+
+        lightbox.innerHTML = `<img src="${imageUrl}" class="lightbox-image">`;
+        document.body.appendChild(lightbox);
+    },
+
+    // Функція для закриття (про всяк випадок, хоча клік на фон вже працює)
+    closeImageLightbox() {
+        const lightbox = document.querySelector('.lightbox-overlay');
+        if (lightbox) {
+            lightbox.remove();
+        }
+    },
 };

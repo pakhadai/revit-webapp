@@ -148,13 +148,13 @@ class Scheduler:
             from sqlalchemy import update
 
             async with async_session() as session:
-                # Скидаємо streak для тих хто не забрав бонус вчора
-                yesterday = datetime.now(self.timezone) - timedelta(days=1)
+
+                yesterday = datetime.now(self.timezone).date() - timedelta(days=1)
 
                 await session.execute(
                     update(DailyBonus)
-                    .where(DailyBonus.last_claim_date < yesterday.date())
-                    .values(streak=0)
+                    .where(DailyBonus.last_claim_date < yesterday)
+                    .values(streak_count=0)
                 )
                 await session.commit()
 
