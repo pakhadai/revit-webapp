@@ -1,141 +1,74 @@
-# backend/api/bonuses.py
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
 
-# --- ДОДАНО ВІДСУТНІ ІМПОРТИ ---
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from datetime import datetime, timedelta, timezone
-
-from database import get_session
+from database import get_db
 from models.user import User
-from models.bonus import DailyBonus, BonusTransaction, BonusTransactionType
-from .auth import get_current_user_dependency
-from utils.timezone import get_kyiv_time, get_kyiv_midnight, seconds_until_kyiv_midnight, utc_to_kyiv
+from models.bonus import DailyBonus
+from api.auth import get_current_user
+from utils.timezone import get_kyiv_time
 
-# --- ДОДАНО СТВОРЕННЯ РОУТЕРА ---
 router = APIRouter()
 
 
-@router.get("/daily/status")
-async def get_daily_bonus_status(
-    current_user: User = Depends(get_current_user_dependency),
-    session: AsyncSession = Depends(get_session)
-):
-    """Get the current status of the daily bonus for the user."""
-    # This logic can be expanded later, for now, we'll return a basic status
-    # to fix the 404 error and allow the block to render.
-    # A more complete implementation would check the last claim date.
-    return {
-        "can_claim": True, # Placeholder logic
-        "current_streak": 0,
-        "next_reward": 10,
-        "streak_broken": False,
-        "can_restore": False,
-        "restore_cost": 30
-    }
-
-@router.post("/daily-bonus")
-async def claim_daily_bonus(
-        current_user: User = Depends(get_current_user_dependency),
-        session: AsyncSession = Depends(get_session)
-):
-    """Отримати щоденний бонус (за київським часом)"""
-
-    # Отримуємо поточний київський час
-    kyiv_now = get_kyiv_time()
-    kyiv_today = kyiv_now.date()
-
-    # Перевіряємо чи вже отримували сьогодні
-    result = await session.execute(
-        select(DailyBonus).where(
-            DailyBonus.user_id == current_user.id
-        ).order_by(DailyBonus.claimed_at.desc())
-    )
-    last_claim = result.scalar_one_or_none()
+# Допоміжна функція з основною логікою для перевірки статусу бонусу
+async def _get_bonus_status(user_id: int, db: Session):
+    """
+    Перевіряє, чи може користувач отримати щоденний бонус.
+    Повертає словник з `can_claim` (bool) та `time_left` (int, у секундах).
+    """
+    now = get_kyiv_time()
+    # Знаходимо останнє отримання бонусу для цього користувача
+    last_claim = db.query(DailyBonus).filter(DailyBonus.user_id == user_id).first()
 
     if last_claim:
-        # Конвертуємо час останнього отримання в київський
-        last_claim_kyiv = utc_to_kyiv(last_claim.claimed_at)
+        last_claimed_at = last_claim.last_claimed_at
+        # Переконуємось, що ми порівнюємо об'єкти datetime з однаковими даними про часову зону
+        if last_claimed_at.tzinfo is None:
+            # Якщо з бази прийшов "наївний" час, вважаємо, що це київський час
+            last_claimed_at = get_kyiv_time().tzinfo.localize(last_claimed_at)
 
-        # Якщо вже отримували сьогодні за київським часом
-        if last_claim_kyiv.date() == kyiv_today:
-            seconds_left = seconds_until_kyiv_midnight()
-            hours_left = seconds_left // 3600
-            minutes_left = (seconds_left % 3600) // 60
+        time_since_claim = now - last_claimed_at
 
-            raise HTTPException(
-                status_code=400,
-                detail=f"Ви вже отримали бонус сьогодні. Наступний через {hours_left}г {minutes_left}хв"
-            )
+        # Перевіряємо, чи минуло 24 години (1 день)
+        if time_since_claim < timedelta(days=1):
+            time_left = timedelta(days=1) - time_since_claim
+            return {"can_claim": False, "time_left": int(time_left.total_seconds())}
 
-        # Перевіряємо стрік (чи отримували вчора)
-        yesterday = kyiv_today - timedelta(days=1)
-        if last_claim_kyiv.date() == yesterday:
-            # Продовжуємо стрік
-            current_streak = last_claim.streak + 1
-        else:
-            # Стрік скинувся
-            current_streak = 1
+    # Якщо бонусів ще не було, або минуло більше 24 годин
+    return {"can_claim": True, "time_left": 0}
+
+
+@router.get("/daily-bonus", summary="Отримати статус щоденного бонусу")
+async def get_daily_bonus_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Кінцева точка API для перевірки статусу щоденного бонусу.
+    """
+    return await _get_bonus_status(current_user.id, db)
+
+
+@router.post("/daily-bonus", summary="Отримати щоденний бонус")
+async def claim_daily_bonus(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Кінцева точка API для отримання щоденного бонусу.
+    """
+    status_data = await _get_bonus_status(current_user.id, db)
+    if not status_data['can_claim']:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bonus already claimed today.")
+
+    bonus_amount = 10  # Кількість бонусів для нарахування
+    current_user.bonus_balance += bonus_amount
+
+    last_claim = db.query(DailyBonus).filter(DailyBonus.user_id == current_user.id).first()
+    now = get_kyiv_time()
+
+    if last_claim:
+        last_claim.last_claimed_at = now
     else:
-        # Перший бонус
-        current_streak = 1
+        new_claim = DailyBonus(user_id=current_user.id, last_claimed_at=now)
+        db.add(new_claim)
 
-    # Визначаємо розмір бонусу залежно від стріку
-    bonus_amounts = {
-        1: 1,  # День 1
-        2: 2,  # День 2
-        3: 3,  # День 3
-        4: 4,  # День 4
-        5: 5,  # День 5
-        6: 7,  # День 6
-        7: 10,  # День 7 - максимальний бонус
-    }
+    db.commit()
+    db.refresh(current_user)
 
-    # Після 7 днів стрік продовжується, але бонус залишається 50
-    if current_streak <= 7:
-        bonus_amount = bonus_amounts[current_streak]
-    else:
-        bonus_amount = 10
-
-    # Нараховуємо бонуси
-    current_user.bonuses += bonus_amount
-    current_user.total_bonuses_earned += bonus_amount
-
-    # Записуємо в історію
-    daily_bonus_record = DailyBonus(
-        user_id=current_user.id,
-        amount=bonus_amount,
-        streak=current_streak,
-        claimed_at=datetime.now(timezone.utc)  # Зберігаємо в UTC
-    )
-    session.add(daily_bonus_record)
-
-    # Записуємо транзакцію
-    transaction = BonusTransaction(
-        user_id=current_user.id,
-        amount=bonus_amount,
-        balance_after=current_user.bonuses,
-        type=BonusTransactionType.DAILY_CLAIM,
-        description=f"Щоденний бонус, день {current_streak}"
-    )
-    session.add(transaction)
-
-    await session.commit()
-
-    # Визначаємо завтрашній бонус
-    tomorrow_streak = current_streak + 1
-    tomorrow_bonus = bonus_amounts.get(tomorrow_streak, 50)
-
-
-    # Час до наступного бонусу
-    seconds_left = seconds_until_kyiv_midnight()
-
-    return {
-        "success": True,
-        "amount": bonus_amount,
-        "streak": current_streak,
-        "new_balance": current_user.bonuses,
-        "tomorrow_bonus": tomorrow_bonus,
-        "next_claim_in_seconds": seconds_left,
-        "next_claim_time": get_kyiv_midnight().isoformat()
-    }
+    return {"message": "Bonus claimed successfully", "new_balance": current_user.bonus_balance}

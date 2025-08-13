@@ -1,6 +1,6 @@
 # backend/api/archives.py - ВИПРАВЛЕНА ВЕРСІЯ З УНІВЕРСАЛЬНИМ ПОШУКОМ
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, func, text
 from typing import List, Dict, Any, Optional
@@ -18,7 +18,7 @@ class ArchiveOut(BaseModel):
     price: float
     discount_percent: int
     archive_type: str
-    image_paths: List[str] # Змінено з image_path на image_paths
+    image_paths: List[str]
 
     class Config:
         from_attributes = True
@@ -26,6 +26,7 @@ class ArchiveOut(BaseModel):
 
 @router.get("/paginated/list")
 async def get_archives_list(
+        request: Request,
         page: int = 1,
         search: Optional[str] = Query(None, description="Пошуковий запит"),
         archive_type: Optional[str] = Query(None, description="Тип архіву: premium або free"),
@@ -40,7 +41,7 @@ async def get_archives_list(
     """
     query = select(Archive)
 
-    # ✅ ВИПРАВЛЕНИЙ ПОШУК ДЛЯ SQLITE
+    # Ваш код для пошуку та фільтрації залишається без змін
     if search:
         search_term = f"%{search.lower()}%"
         query = query.where(or_(
@@ -50,23 +51,17 @@ async def get_archives_list(
             func.lower(func.json_extract(Archive.description, '$.ua')).like(search_term),
             func.lower(func.json_extract(Archive.description, '$.en')).like(search_term)
         ))
-
-    # Фільтр за типом
     if archive_type:
         query = query.where(Archive.archive_type == archive_type)
-
-    # Фільтр за ціною
     if min_price is not None:
         query = query.where(Archive.price >= min_price)
     if max_price is not None:
         query = query.where(Archive.price <= max_price)
 
-    # Сортування
-    order_column = Archive.id  # Default
+    order_column = Archive.id
     if sort_by == "price":
         order_column = Archive.price
     elif sort_by == "title":
-        # ✅ ВИПРАВЛЕНЕ СОРТУВАННЯ ДЛЯ SQLITE
         order_column = func.json_extract(Archive.title, '$.ua')
     elif sort_by == "created_at":
         order_column = Archive.created_at
@@ -79,10 +74,23 @@ async def get_archives_list(
     result = await session.execute(query)
     archives = result.scalars().all()
 
-    # ✅ Перетворюємо результат у відповідність до моделі Pydantic
+    # --- ОСЬ ТУТ ВИПРАВЛЕННЯ ---
+
+    # Формуємо базову URL-адресу сервера
+    base_url = str(request.base_url)
+    if "ngrok.io" in base_url and base_url.startswith("http://"):
+        base_url = base_url.replace("http://", "https://")
+
     response_archives = []
     for archive in archives:
-        image_to_display = (archive.image_paths[0] if isinstance(archive.image_paths, list) and archive.image_paths else "/images/placeholder.png")
+        # Перевіряємо, чи є у архіву зображення
+        if archive.image_paths and isinstance(archive.image_paths, list) and archive.image_paths[0]:
+            # Створюємо повну, абсолютну URL-адресу
+            image_url = f"{base_url}static/{archive.image_paths[0]}"
+        else:
+            # Якщо зображення немає, створюємо повну URL для запасного зображення
+            image_url = f"{base_url}static/images/placeholder.png"
+
         response_archives.append(ArchiveOut(
             id=archive.id,
             code=archive.code,
@@ -91,12 +99,13 @@ async def get_archives_list(
             price=archive.price,
             discount_percent=archive.discount_percent,
             archive_type=archive.archive_type,
-            image_paths=[image_to_display] # Повертаємо список, як очікує модель
+            # Модель очікує список, тому повертаємо URL у списку
+            image_paths=[image_url]
         ))
 
     return {
         "items": response_archives,
-        "page": page,  # <-- ВИКОРИСТОВУЙТЕ ПАРАМЕТР "page" ТУТ
-        "has_more": len(response_archives) >= 12,  # Проста логіка
-        "total": len(response_archives)  # Це тимчасово, потім тут буде загальна кількість
+        "page": page,
+        "has_more": len(response_archives) >= 12,
+        "total": len(response_archives)
     }
