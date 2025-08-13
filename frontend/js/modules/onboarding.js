@@ -124,10 +124,27 @@ window.OnboardingModule = {
 
     // Показати функції
     showFeatures() {
-        const content = document.querySelector('#onboarding-modal .flex-1');
+        // Знаходимо правильний контейнер
+        const modalContent = document.querySelector('#onboarding-modal > div');
+        if (!modalContent) {
+            console.error('Modal content not found');
+            return;
+        }
 
-        content.innerHTML = `
-            <div style="padding: 30px 20px;">
+        // Замінюємо весь вміст модального вікна
+        modalContent.innerHTML = `
+            <!-- Прогрес -->
+            <div style="padding: 20px; background: var(--tg-theme-bg-color);">
+                <div style="display: flex; gap: 8px;">
+                    <div style="flex: 1; height: 4px; background: var(--primary-color); border-radius: 2px;"></div>
+                    <div style="flex: 1; height: 4px; background: var(--primary-color); border-radius: 2px;"></div>
+                    <div style="flex: 1; height: 4px; background: #e0e0e0; border-radius: 2px;"></div>
+                    <div style="flex: 1; height: 4px; background: #e0e0e0; border-radius: 2px;"></div>
+                </div>
+            </div>
+
+            <!-- Контент -->
+            <div style="flex: 1; padding: 30px 20px; overflow-y: auto;">
                 <h2 style="text-align: center; margin: 0 0 30px; font-size: 24px;">Як це працює? 🤔</h2>
 
                 <div style="margin-bottom: 30px;">
@@ -187,21 +204,37 @@ window.OnboardingModule = {
                     </div>
                 </div>
             </div>
-        `;
 
-        // Оновлюємо прогрес
-        document.querySelectorAll('#onboarding-modal .flex > div').forEach((el, i) => {
-            el.style.background = i <= 1 ? 'var(--primary-color)' : '#e0e0e0';
-        });
+            <!-- Кнопка -->
+            <div style="padding: 20px; background: var(--tg-theme-bg-color); border-top: 1px solid var(--tg-theme-secondary-bg-color);">
+                <button onclick="OnboardingModule.nextStep()"
+                        style="width: 100%; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer;">
+                    Далі →
+                </button>
+            </div>
+        `;
 
         this.currentStep = 2;
     },
 
     // Показати правила
     showRules() {
-        const content = document.querySelector('#onboarding-modal .flex-1');
+        const modalContent = document.querySelector('#onboarding-modal > div');
+        if (!modalContent) {
+            console.error('Modal content not found');
+            return;
+        }
 
-        content.innerHTML = `
+        modalContent.innerHTML = `
+            <!-- Прогрес -->
+            <div style="padding: 20px; background: var(--tg-theme-bg-color);">
+                <div style="display: flex; gap: 8px;">
+                    <div style="flex: 1; height: 4px; background: var(--primary-color); border-radius: 2px;"></div>
+                    <div style="flex: 1; height: 4px; background: var(--primary-color); border-radius: 2px;"></div>
+                    <div style="flex: 1; height: 4px; background: var(--primary-color); border-radius: 2px;"></div>
+                    <div style="flex: 1; height: 4px; background: #e0e0e0; border-radius: 2px;"></div>
+                </div>
+            </div>
             <div style="padding: 30px 20px;">
                 <h2 style="text-align: center; margin: 0 0 30px; font-size: 24px;">Правила користування 📋</h2>
 

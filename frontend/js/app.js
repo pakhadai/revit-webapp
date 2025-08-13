@@ -5,7 +5,52 @@
     // ============= CORE CLASSES (без змін) =============
     class Storage { constructor() { this.prefix = 'revitbot_'; } set(key, value) { try { localStorage.setItem(this.prefix + key, JSON.stringify(value)); } catch (e) { console.error('Storage error:', e); } } get(key, defaultValue = null) { try { const item = localStorage.getItem(this.prefix + key); return item ? JSON.parse(item) : defaultValue; } catch (e) { return defaultValue; } } remove(key) { localStorage.removeItem(this.prefix + key); } }
     class Api { constructor(storage, baseURL) { this.storage = storage; this.baseURL = baseURL || 'http://localhost:8001'; this.token = null; } setToken(token) { this.token = token; } async request(endpoint, options = {}) { const config = { ...options, headers: { 'Content-Type': 'application/json', ...options.headers } }; if (this.token) config.headers['Authorization'] = `Bearer ${this.token}`; try { const response = await fetch(`${this.baseURL}${endpoint}`, config); window.dispatchEvent(new Event('connection-restored')); if (!response.ok) { const errorText = await response.text(); throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`); } return await response.json(); } catch (error) { if (error instanceof TypeError && error.message.includes('Failed to fetch')) { window.dispatchEvent(new Event('connection-lost')); } console.error('API request failed:', error); throw error; } } async get(endpoint, options = {}) { const { useCache = false, ttl = 300 } = options; if (!useCache) return this.request(endpoint); const cacheKey = `cache_${endpoint}`; const cachedItem = this.storage.get(cacheKey); if (cachedItem && (Date.now() - cachedItem.timestamp) / 1000 < ttl) { return cachedItem.data; } const data = await this.request(endpoint); this.storage.set(cacheKey, { data: data, timestamp: Date.now() }); return data; } post(endpoint, data) { return this.request(endpoint, { method: 'POST', body: JSON.stringify(data) }); } put(endpoint, data) { return this.request(endpoint, { method: 'PUT', body: JSON.stringify(data) }); } delete(endpoint) { return this.request(endpoint, { method: 'DELETE' }); } }
-    class TelegramWebApp { constructor() { this.tg = window.Telegram?.WebApp; this.isAvailable = !!this.tg; } init() { if (this.isAvailable) { this.tg.ready(); this.tg.expand(); if (this.tg.enableClosingConfirmation) this.tg.enableClosingConfirmation(); } } onEvent(eventType, callback) { if (this.isAvailable) this.tg.onEvent(eventType, callback); } getInitData() { return this.isAvailable ? (this.tg.initData || '') : 'dev_mode=true'; } getThemeParams() { return this.isAvailable ? this.tg.themeParams : { bg_color: '#ffffff', text_color: '#000000', hint_color: '#999999' }; } showAlert(message) { try { if (this.isAvailable && this.tg.showAlert) this.tg.showAlert(message); else alert(message); } catch (e) { alert(message); } } }
+    class TelegramWebApp {
+        constructor() {
+            this.tg = window.Telegram?.WebApp;
+            this.isAvailable = !!this.tg;
+        }
+
+        init() {
+            if (this.isAvailable) {
+                this.tg.ready();
+                this.tg.expand();
+
+                // Перевіряємо версію перед викликом
+                if (this.tg.version && parseFloat(this.tg.version) >= 6.1) {
+                    if (this.tg.enableClosingConfirmation) {
+                        this.tg.enableClosingConfirmation();
+                    }
+                }
+            }
+        }
+
+        onEvent(eventType, callback) {
+            if (this.isAvailable) this.tg.onEvent(eventType, callback);
+        }
+
+        getInitData() {
+            return this.isAvailable ? (this.tg.initData || '') : 'dev_mode=true';
+        }
+
+        getThemeParams() {
+            return this.isAvailable ? this.tg.themeParams : {
+                bg_color: '#ffffff',
+                text_color: '#000000',
+                hint_color: '#999999'
+            };
+        }
+
+        showAlert(message) {
+            try {
+                if (this.isAvailable && this.tg.showAlert) this.tg.showAlert(message);
+                else alert(message);
+            } catch (e) {
+                alert(message);
+            }
+        }
+    }
+
 
     // ============= MAIN APP =============
     class RevitWebApp {
