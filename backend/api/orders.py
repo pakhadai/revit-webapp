@@ -243,7 +243,7 @@ async def create_order(
         await grant_user_access_to_purchased_items(order.id, current_user.id, session)
 
         # Оновлюємо VIP статус
-        await update_vip_status_after_purchase(current_user, order, session)
+        await update_vip_status_after_purchase(current_user.id, order.subtotal, session)
 
         order.status = "completed"
         order.completed_at = datetime.now(timezone.utc)

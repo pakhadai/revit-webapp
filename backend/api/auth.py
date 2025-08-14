@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import json
 import logging
+from fastapi.security import OAuth2PasswordBearer
 from urllib.parse import unquote
 from jose import JWTError, jwt
 import httpx
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/telegram")
 # JWT налаштування
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
@@ -26,6 +28,33 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
 # Список Telegram ID адміністраторів
 ADMIN_TELEGRAM_IDS = settings.admin_ids_list
+
+
+async def get_current_user_dependency(
+        token: str = Depends(oauth2_scheme),
+        session: AsyncSession = Depends(get_session)
+) -> User:
+    """Dependency для перевірки токена і отримання користувача"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    result = await session.execute(
+        select(User).where(User.id == int(user_id))
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise credentials_exception
+    return user
+
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Створення JWT токена"""
@@ -41,6 +70,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 def verify_telegram_data(init_data: str) -> Dict:
     """Перевірка та парсинг даних від Telegram"""
+    if not settings.BOT_TOKEN and not (settings.DEV_MODE and init_data == "dev_mode=true"):
+        logger.error("BOT_TOKEN is not set in config. Cannot verify Telegram data.")
+        raise ValueError("BOT_TOKEN is not configured on the server.")
 
     # Для режиму розробки
     if settings.DEV_MODE and init_data == "dev_mode=true":
@@ -306,40 +338,3 @@ async def get_current_user(
         "bonus_balance": current_user.bonus_balance,
         "vip_level": current_user.vip_level
     }
-
-
-# Dependency для отримання поточного користувача
-async def get_current_user_dependency(
-        token: str = Depends(oauth2_scheme),
-        session: AsyncSession = Depends(get_session)
-) -> User:
-    """Dependency для перевірки токена і отримання користувача"""
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-
-    result = await session.execute(
-        select(User).where(User.id == int(user_id))
-    )
-    user = result.scalar_one_or_none()
-
-    if user is None:
-        raise credentials_exception
-
-    return user
-
-
-# OAuth2 схема
-from fastapi.security import OAuth2PasswordBearer
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/telegram")

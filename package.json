@@ -4,7 +4,7 @@
   "description": "Telegram Web App for Revit Families",
   "proxy": "http://localhost:8001",
   "scripts": {
-    "dev:frontend": "serve -s frontend -l 8000",
+    "dev:frontend": "serve -l 8000 frontend -c serve.json",
     "dev:backend": "cd backend && uvicorn main:app --reload --port 8001",
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "start": "npm run dev"

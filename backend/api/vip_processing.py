@@ -58,7 +58,7 @@ async def update_vip_status_after_purchase(
     except Exception as e:
         logger.error(f"Error updating VIP status for user {user_id}: {e}")
         await session.rollback()
-        return VipLevel.NONE
+        return 'none'
 
 
 def calculate_vip_level(total_spent: float) -> VipLevel:
@@ -79,9 +79,9 @@ def calculate_vip_level(total_spent: float) -> VipLevel:
     elif total_spent >= settings.VIP_SILVER_THRESHOLD:
         return VipLevel.SILVER
     elif total_spent > 0:
-        return VipLevel.BRONZE
+        return 'bronze'
     else:
-        return VipLevel.NONE
+        return 'none'
 
 
 def get_vip_cashback_rate(vip_level: VipLevel) -> float:
@@ -96,11 +96,11 @@ def get_vip_cashback_rate(vip_level: VipLevel) -> float:
     """
 
     cashback_rates = {
-        VipLevel.NONE: 0.0,
-        VipLevel.BRONZE: settings.VIP_BRONZE_CASHBACK,
-        VipLevel.SILVER: settings.VIP_SILVER_CASHBACK,
-        VipLevel.GOLD: settings.VIP_GOLD_CASHBACK,
-        VipLevel.DIAMOND: settings.VIP_DIAMOND_CASHBACK
+        'none': 0.0,
+        'bronze': settings.VIP_BRONZE_CASHBACK,
+        'silver': settings.VIP_SILVER_CASHBACK,
+        'gold': settings.VIP_GOLD_CASHBACK,
+        'diamond': settings.VIP_DIAMOND_CASHBACK
     }
 
     return cashback_rates.get(vip_level, 0.0)
@@ -118,35 +118,35 @@ def get_vip_benefits(vip_level: VipLevel) -> dict:
     """
 
     benefits = {
-        VipLevel.NONE: {
+        'none': {
             "cashback": 0,
             "priority_support": False,
             "exclusive_content": False,
             "early_access": False,
             "bonus_multiplier": 1.0
         },
-        VipLevel.BRONZE: {
+        'bronze': {
             "cashback": int(settings.VIP_BRONZE_CASHBACK * 100),
             "priority_support": False,
             "exclusive_content": False,
             "early_access": False,
             "bonus_multiplier": 1.1
         },
-        VipLevel.SILVER: {
+        'silver': {
             "cashback": int(settings.VIP_SILVER_CASHBACK * 100),
             "priority_support": True,
             "exclusive_content": False,
             "early_access": False,
             "bonus_multiplier": 1.2
         },
-        VipLevel.GOLD: {
+        'gold': {
             "cashback": int(settings.VIP_GOLD_CASHBACK * 100),
             "priority_support": True,
             "exclusive_content": True,
             "early_access": False,
             "bonus_multiplier": 1.3
         },
-        VipLevel.DIAMOND: {
+        'diamond': {
             "cashback": int(settings.VIP_DIAMOND_CASHBACK * 100),
             "priority_support": True,
             "exclusive_content": True,
@@ -155,7 +155,7 @@ def get_vip_benefits(vip_level: VipLevel) -> dict:
         }
     }
 
-    return benefits.get(vip_level, benefits[VipLevel.NONE])
+    return benefits.get(vip_level, benefits['none'])
 
 
 async def calculate_cashback_amount(

@@ -56,7 +56,8 @@ import { config } from './config.js';
                 config.headers['Authorization'] = `Bearer ${this.token}`;
             }
 
-            const response = await fetch(`${this.baseURL}${endpoint}`, config);
+            const url = this.baseURL ? `${this.baseURL}${endpoint}` : endpoint;
+            const response = await fetch(url, config);
 
             if (!response.ok) {
                 if (response.status === 401) {

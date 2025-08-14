@@ -1,3 +1,8 @@
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
 from pydantic_settings import BaseSettings
 from pathlib import Path
 from typing import Optional
@@ -77,8 +82,14 @@ class Settings(BaseSettings):
     PAYMENT_CURRENCIES: list = ["USD", "EUR", "USDT", "BTC", "ETH"]
     PAYMENT_TIMEOUT_MINUTES: int = 60
 
+    @property
+    def admin_ids_list(self) -> list:
+        """Повертає список Telegram ID адміністраторів"""
+        if not self.ADMIN_TELEGRAM_IDS:
+            return []
+        return [id.strip() for id in self.ADMIN_TELEGRAM_IDS.split(',') if id.strip()]
+
     class Config:
-        env_file = ".env"
         case_sensitive = False
 
 # Створюємо екземпляр налаштувань
@@ -90,15 +101,3 @@ settings.MEDIA_DIR.mkdir(exist_ok=True)
 settings.PREMIUM_ARCHIVES_DIR.mkdir(parents=True, exist_ok=True)
 settings.FREE_ARCHIVES_DIR.mkdir(parents=True, exist_ok=True)
 
-
-@property
-def admin_ids_list(self) -> list:
-    """Повертає список Telegram ID адміністраторів"""
-    if not self.ADMIN_TELEGRAM_IDS:
-        return []
-    return [id.strip() for id in self.ADMIN_TELEGRAM_IDS.split(',') if id.strip()]
-
-
-class Config:
-    env_file = ".env"
-    case_sensitive = False

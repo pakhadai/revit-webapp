@@ -8,18 +8,14 @@
 
     <title>RevitBot Store</title>
 
-    <!-- Telegram Web App -->
+    <script src="js/modules/admin-upload.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- Styles -->
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/skeletons.css">
     <link rel="stylesheet" href="css/responsive.css">
-    <link rel="stylesheet" href="css/upload.css">
-    <link rel="stylesheet" href="css/user.css">
 
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -27,153 +23,62 @@
 <body>
 
     <div id="app" class="app-container">
-        <!-- Header -->
         <header id="app-header" class="app-header">
             <div class="header-content">
                 <h1 class="header-title">RevitBot</h1>
                 <div class="header-actions">
-                    <!-- User info буде додано через JS -->
-
-                    <!-- Notifications Bell -->
-                    <button id="notifications-bell" class="icon-btn" onclick="window.NotificationsModule?.showNotifications()">
+                    <button id="notifications-bell" class="icon-btn" onclick="window.NotificationsModule.showNotifications()">
                         <div style="position: relative;">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                             </svg>
-                            <span id="notification-badge" class="notification-badge" style="display: none;">0</span>
+                            <span id="notifications-counter" class="badge-count" style="top: -5px; right: -5px; display: none;">0</span>
                         </div>
                     </button>
 
-                    <!-- Language Switcher -->
-                    <button id="lang-switcher" class="icon-btn">
-                        <span id="current-lang">UA</span>
-                    </button>
-
-                    <!-- Cart -->
-                    <button id="cart-btn" class="icon-btn">
-                        <div style="position: relative;">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="9" cy="21" r="1"></circle>
-                                <circle cx="20" cy="21" r="1"></circle>
-                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                            </svg>
-                            <span id="cart-count" class="cart-badge">0</span>
-                        </div>
+                    <button id="search-btn" class="icon-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"/>
+                        </svg>
                     </button>
                 </div>
             </div>
         </header>
 
-        <!-- Search Bar -->
-        <div class="search-container">
-            <input type="text" id="search-input" class="search-input" placeholder="Пошук архівів...">
-            <button class="search-btn">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <path d="m21 21-4.35-4.35"></path>
-                </svg>
-            </button>
-        </div>
-
-        <!-- Main Content -->
-        <main class="app-main" id="app-main">
-            <div id="page-content">
-                <!-- Контент завантажується динамічно -->
+        <main id="app-content" class="app-content">
+            <div class="loader-container">
+                <div class="loader"></div>
             </div>
         </main>
 
-        <!-- Bottom Navigation -->
-        <nav class="bottom-nav" id="bottom-nav">
-            <button class="nav-item active" data-page="home">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                </svg>
+        <nav id="bottom-nav" class="bottom-nav">
+            <a href="#home" class="nav-item active" data-page="home">
+                <svg class="nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
                 <span class="nav-label">Головна</span>
-            </button>
-
-            <button class="nav-item" data-page="catalog">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="14" width="7" height="7"></rect>
-                    <rect x="3" y="14" width="7" height="7"></rect>
-                </svg>
+            </a>
+            <a href="#catalog" class="nav-item" data-page="catalog">
+                <svg class="nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
                 <span class="nav-label">Каталог</span>
-            </button>
-
-            <button class="nav-item" data-page="bonuses">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                </svg>
-                <span class="nav-label">Бонуси</span>
-            </button>
-
-            <button class="nav-item" data-page="profile">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                <span class="nav-label">Профіль</span>
-            </button>
-
-            <!-- Admin Button - буде додано через JS тільки для адмінів -->
-        </nav>
-
-        <!-- Cart Sidebar -->
-        <div id="cart-sidebar" class="cart-sidebar">
-            <div class="cart-header">
-                <h2>Кошик</h2>
-                <button id="close-cart" class="close-btn">&times;</button>
-            </div>
-            <div id="cart-items" class="cart-items">
-                <!-- Товари в кошику -->
-            </div>
-            <div class="cart-footer">
-                <div class="cart-total">
-                    <span>Всього:</span>
-                    <span id="cart-total">$0</span>
+            </a>
+            <a href="#cart" class="nav-item" data-page="cart">
+                <div class="nav-icon-wrapper">
+                    <svg class="nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                    <span id="cart-badge" class="badge-count" style="display: none;">0</span>
                 </div>
-                <button id="checkout-btn" class="btn btn-primary btn-block">
-                    Оформити замовлення
-                </button>
-            </div>
-        </div>
-
-        <!-- Cart Overlay -->
-        <div id="cart-overlay" class="cart-overlay"></div>
-
-        <!-- Loading Overlay -->
-        <div id="loading-overlay" class="loading-overlay" style="display: none;">
-            <div class="spinner"></div>
-        </div>
-
-        <!-- Toast Container -->
-        <div id="toast-container" class="toast-container"></div>
-
-        <!-- Modals Container -->
-        <div id="modals-container"></div>
+                <span class="nav-label">Кошик</span>
+            </a>
+            <a href="#profile" class="nav-item" data-page="profile">
+                <svg class="nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span class="nav-label">Профіль</span>
+            </a>
+            <a href="#admin" id="admin-nav" class="nav-item" data-page="admin" style="display: none;">
+                <svg class="nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <span class="nav-label">Адмін</span>
+            </a>
+        </nav>
     </div>
 
-    <!-- Scripts -->
-    <script src="js/modules/admin-upload.js"></script>
-
-    <!-- Main App Script -->
-    <script type="module" src="js/app.js"></script>
-
-    <!-- Lazy Load Modules -->
-    <script>
-        // Динамічне завантаження модулів при необхідності
-        window.lazyLoadModule = async function(moduleName) {
-            try {
-                const module = await import(`./js/modules/${moduleName}.js`);
-                window[moduleName.charAt(0).toUpperCase() + moduleName.slice(1) + 'Module'] = module.default || module;
-                return module;
-            } catch (error) {
-                console.error(`Failed to load module ${moduleName}:`, error);
-            }
-        }
-    </script>
+    <script src="js/app.js"></script>
 </body>
 </html>

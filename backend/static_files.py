@@ -19,13 +19,18 @@ def setup_static_files(app: FastAPI):
     print(f"✅ Serving frontend from: {frontend_path}")
 
     # Монтуємо статичні директорії
-    static_dirs = ["css", "js", "images", "locales"]
+    static_dirs = ["css", "js", "images"]
 
     for dir_name in static_dirs:
         dir_path = frontend_path / dir_name
         if dir_path.exists():
             app.mount(f"/{dir_name}", StaticFiles(directory=str(dir_path)), name=dir_name)
             print(f"  📁 Mounted /{dir_name}")
+
+    locales_path = frontend_path / "js" / "locales"
+    if locales_path.exists():
+        app.mount("/locales", StaticFiles(directory=str(locales_path)), name="locales")
+        print(f"  📁 Mounted /locales")
 
     # Головна сторінка
     @app.get("/")

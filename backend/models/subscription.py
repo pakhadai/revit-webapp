@@ -60,10 +60,6 @@ class SubscriptionArchive(Base):
 
     unlocked_at = Column(DateTime, server_default=func.now())
 
-    # Унікальність - користувач не може двічі розблокувати той самий архів
-    __table_args__ = (
-        {'mysql_charset': 'utf8mb4', 'mysql_collate': 'utf8mb4_unicode_ci'},
-    )
 
     def __repr__(self):
         return f"<SubscriptionArchive sub={self.subscription_id} archive={self.archive_id}>"
