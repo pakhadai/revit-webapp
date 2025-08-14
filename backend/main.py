@@ -9,6 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
+from api.user_settings import router as user_settings_router
+from api.marketplace import router as marketplace_router
 from limiter import limiter
 from pathlib import Path
 
@@ -124,6 +126,8 @@ app.include_router(notifications_router, prefix="/api/notifications", tags=["not
 app.include_router(comments_router, prefix="/api/comments", tags=["comments"])
 app.include_router(promo_codes_router, prefix="/api/promo-codes", tags=["promo-codes"])
 app.include_router(uploads_router, prefix="/api/uploads", tags=["uploads"])
+app.include_router(user_settings_router, prefix="/api/users", tags=["user-settings"])
+app.include_router(marketplace_router, prefix="/api/marketplace", tags=["marketplace"])
 
 # --- ТЕСТОВІ ЕНДПОІНТИ --- (код без змін)
 @app.get("/")

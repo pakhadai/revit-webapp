@@ -342,6 +342,7 @@
             if (!window.HistoryModule) await this.loadScript('js/modules/history.js');
             if (!window.VipModule) await this.loadScript('js/modules/vip.js');
             if (!window.ReferralsModule) await this.loadScript('js/modules/referrals.js');
+            if (!window.UserSettingsModule) await this.loadScript('js/modules/user-settings.js');
 
             const { fullName, username } = this.user;
             const vipBlock = await window.VipModule.renderVipBlock(this);

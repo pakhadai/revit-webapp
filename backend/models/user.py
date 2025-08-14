@@ -41,6 +41,35 @@ class User(Base):
     vip_level = Column(String(20), default='bronze')  # bronze, silver, gold, diamond
     total_purchases_amount = Column(Float, default=0)  # Загальна сума покупок
 
+    # Налаштування сповіщень
+    notify_new_archives = Column(Boolean, default=True)
+    notify_promotions = Column(Boolean, default=True)
+    notify_bonuses = Column(Boolean, default=True)
+    notify_order_status = Column(Boolean, default=True)
+    notify_subscription_expiry = Column(Boolean, default=True)
+
+    # Налаштування інтерфейсу
+    theme = Column(String(20), default='auto')
+    compact_view = Column(Boolean, default=False)
+    show_prices_with_vat = Column(Boolean, default=False)
+
+    # Налаштування конфіденційності
+    profile_visibility = Column(String(20), default='public')
+    show_purchase_history = Column(Boolean, default=True)
+    allow_friend_requests = Column(Boolean, default=True)
+
+    # Персональна інформація
+    display_name = Column(String(100), nullable=True)
+    bio = Column(Text, nullable=True)
+    country = Column(String(2), nullable=True)
+    timezone = Column(String(50), default='Europe/Kiev')
+
+    # Безпека
+    email_verified = Column(Boolean, default=False)
+    phone_verified = Column(Boolean, default=False)
+    two_factor_enabled = Column(Boolean, default=False)
+    last_settings_update = Column(DateTime, nullable=True)
+
     # Timestamps
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
