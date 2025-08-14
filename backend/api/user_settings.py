@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # Pydantic моделі для валідації
 class UserSettingsUpdate(BaseModel):
     """Модель для оновлення налаштувань"""
-    language_code: Optional[str] = Field(None, regex="^(ua|en|ru|de|ar)$")
+    language_code: Optional[str] = Field(None, pattern="^(ua|en|ru|de|ar)$") # ВИПРАВЛЕНО ТУТ
 
     # Налаштування сповіщень
     notify_new_archives: Optional[bool] = None
@@ -33,12 +33,12 @@ class UserSettingsUpdate(BaseModel):
     notify_subscription_expiry: Optional[bool] = None
 
     # Налаштування інтерфейсу
-    theme: Optional[str] = Field(None, regex="^(light|dark|auto)$")
+    theme: Optional[str] = Field(None, pattern="^(light|dark|auto)$") # ВИПРАВЛЕНО ТУТ
     compact_view: Optional[bool] = None
     show_prices_with_vat: Optional[bool] = None
 
     # Налаштування конфіденційності
-    profile_visibility: Optional[str] = Field(None, regex="^(public|friends|private)$")
+    profile_visibility: Optional[str] = Field(None, pattern="^(public|friends|private)$") # ВИПРАВЛЕНО ТУТ
     show_purchase_history: Optional[bool] = None
     allow_friend_requests: Optional[bool] = None
 

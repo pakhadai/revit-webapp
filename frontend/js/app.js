@@ -4,7 +4,7 @@
 
     // ============= CORE CLASSES (без змін) =============
     class Storage { constructor() { this.prefix = 'revitbot_'; } set(key, value) { try { localStorage.setItem(this.prefix + key, JSON.stringify(value)); } catch (e) { console.error('Storage error:', e); } } get(key, defaultValue = null) { try { const item = localStorage.getItem(this.prefix + key); return item ? JSON.parse(item) : defaultValue; } catch (e) { return defaultValue; } } remove(key) { localStorage.removeItem(this.prefix + key); } }
-    class Api { constructor(storage, baseURL) { this.storage = storage; this.baseURL = baseURL || 'https://aa6bc8661952.ngrok-free.app/'; this.token = null; } setToken(token) { this.token = token; } async request(endpoint, options = {}) { const config = { ...options, headers: { 'Content-Type': 'application/json', ...options.headers } }; if (this.token) config.headers['Authorization'] = `Bearer ${this.token}`; try { const response = await fetch(`${this.baseURL}${endpoint}`, config); window.dispatchEvent(new Event('connection-restored')); if (!response.ok) { const errorText = await response.text(); throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`); } return await response.json(); } catch (error) { if (error instanceof TypeError && error.message.includes('Failed to fetch')) { window.dispatchEvent(new Event('connection-lost')); } console.error('API request failed:', error); throw error; } } async get(endpoint, options = {}) { const { useCache = false, ttl = 300 } = options; if (!useCache) return this.request(endpoint); const cacheKey = `cache_${endpoint}`; const cachedItem = this.storage.get(cacheKey); if (cachedItem && (Date.now() - cachedItem.timestamp) / 1000 < ttl) { return cachedItem.data; } const data = await this.request(endpoint); this.storage.set(cacheKey, { data: data, timestamp: Date.now() }); return data; } post(endpoint, data) { return this.request(endpoint, { method: 'POST', body: JSON.stringify(data) }); } put(endpoint, data) { return this.request(endpoint, { method: 'PUT', body: JSON.stringify(data) }); } delete(endpoint) { return this.request(endpoint, { method: 'DELETE' }); } }
+    class Api { constructor(storage, baseURL) { this.storage = storage; this.baseURL = baseURL || 'https://f8da633a450c.ngrok-free.app/'; this.token = null; } setToken(token) { this.token = token; } async request(endpoint, options = {}) { const config = { ...options, headers: { 'Content-Type': 'application/json', ...options.headers } }; if (this.token) config.headers['Authorization'] = `Bearer ${this.token}`; try { const response = await fetch(`${this.baseURL}${endpoint}`, config); window.dispatchEvent(new Event('connection-restored')); if (!response.ok) { const errorText = await response.text(); throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`); } return await response.json(); } catch (error) { if (error instanceof TypeError && error.message.includes('Failed to fetch')) { window.dispatchEvent(new Event('connection-lost')); } console.error('API request failed:', error); throw error; } } async get(endpoint, options = {}) { const { useCache = false, ttl = 300 } = options; if (!useCache) return this.request(endpoint); const cacheKey = `cache_${endpoint}`; const cachedItem = this.storage.get(cacheKey); if (cachedItem && (Date.now() - cachedItem.timestamp) / 1000 < ttl) { return cachedItem.data; } const data = await this.request(endpoint); this.storage.set(cacheKey, { data: data, timestamp: Date.now() }); return data; } post(endpoint, data) { return this.request(endpoint, { method: 'POST', body: JSON.stringify(data) }); } put(endpoint, data) { return this.request(endpoint, { method: 'PUT', body: JSON.stringify(data) }); } delete(endpoint) { return this.request(endpoint, { method: 'DELETE' }); } }
     class TelegramWebApp {
         constructor() {
             this.tg = window.Telegram?.WebApp;
@@ -56,7 +56,7 @@
     class RevitWebApp {
         constructor() {
             this.storage = new Storage();
-            this.api = new Api(this.storage, 'https://aa6bc8661952.ngrok-free.app/');
+            this.api = new Api(this.storage, 'https://f8da633a450c.ngrok-free.app/');
             this.tg = new TelegramWebApp();
             this.currentPage = 'home';
             this.user = null;
@@ -342,7 +342,6 @@
             if (!window.HistoryModule) await this.loadScript('js/modules/history.js');
             if (!window.VipModule) await this.loadScript('js/modules/vip.js');
             if (!window.ReferralsModule) await this.loadScript('js/modules/referrals.js');
-            if (!window.UserSettingsModule) await this.loadScript('js/modules/user-settings.js');
 
             const { fullName, username } = this.user;
             const vipBlock = await window.VipModule.renderVipBlock(this);
@@ -350,7 +349,6 @@
 
             return `
                 <div class="profile-page p-3">
-                    <!-- Профіль користувача -->
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 16px; color: white;">
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <div style="width: 64px; height: 64px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold;">
@@ -363,18 +361,14 @@
                         </div>
                     </div>
 
-                    <!-- VIP блок -->
                     ${vipBlock}
 
-                    <!-- Реферальний блок -->
                     ${referralsBlock}
 
-                    <!-- Основні кнопки з емодзі та градієнтами -->
                     <div style="margin-top: 30px;">
                         <h3 style="margin-bottom: 15px; color: var(--tg-theme-text-color);">📱 Мої розділи</h3>
                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
 
-                            <!-- Мої завантаження -->
                             <button onclick="DownloadsModule.showDownloads(window.app)"
                                     style="position: relative; overflow: hidden; padding: 20px 15px; background: linear-gradient(135deg, #00C9FF 0%, #92FE9D 100%); border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s;">
                                 <div style="position: relative; z-index: 1;">
@@ -383,7 +377,6 @@
                                 </div>
                             </button>
 
-                            <!-- Мої вибрані -->
                             <button onclick="window.FavoritesModule.showFavoritesPage(window.app)"
                                     style="position: relative; overflow: hidden; padding: 20px 15px; background: linear-gradient(135deg, #FC466B 0%, #3F5EFB 100%); border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s;">
                                 <div style="position: relative; z-index: 1;">
@@ -392,7 +385,6 @@
                                 </div>
                             </button>
 
-                            <!-- Історія переглядів -->
                             <button onclick="window.HistoryModule.showHistoryPage(window.app)"
                                     style="position: relative; overflow: hidden; padding: 20px 15px; background: linear-gradient(135deg, #FDBB2D 0%, #22C1C3 100%); border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s;">
                                 <div style="position: relative; z-index: 1;">
@@ -401,7 +393,6 @@
                                 </div>
                             </button>
 
-                            <!-- Сповіщення -->
                             <button onclick="window.app.loadScript('js/modules/notifications.js').then(() => window.NotificationsModule.showNotifications(window.app))"
                                     style="position: relative; overflow: hidden; padding: 20px 15px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s;">
                                 <div style="position: relative; z-index: 1;">
@@ -412,12 +403,10 @@
                         </div>
                     </div>
 
-                    <!-- Додаткові функції -->
                     <div style="margin-top: 25px;">
                         <h3 style="margin-bottom: 15px; color: var(--tg-theme-text-color);">⚙️ Додатково</h3>
                         <div style="display: flex; flex-direction: column; gap: 10px;">
 
-                            <!-- Мова -->
                             <button onclick="window.app.showLanguageModal()"
                                     style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 10px; cursor: pointer;">
                                 <div style="display: flex; align-items: center; gap: 12px;">
@@ -427,7 +416,6 @@
                                 <span style="color: var(--tg-theme-hint-color); font-size: 12px;">${this.currentLang === 'ua' ? 'Українська' : 'English'}</span>
                             </button>
 
-                            <!-- Підтримка -->
                             <button onclick="window.open('https://t.me/revitbot_support', '_blank')"
                                     style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 10px; cursor: pointer;">
                                 <div style="display: flex; align-items: center; gap: 12px;">
@@ -437,7 +425,6 @@
                                 <span style="color: var(--tg-theme-hint-color);">→</span>
                             </button>
 
-                            <!-- Про додаток -->
                             <button onclick="window.app.showAboutModal()"
                                     style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 10px; cursor: pointer;">
                                 <div style="display: flex; align-items: center; gap: 12px;">
@@ -447,6 +434,12 @@
                                 <span style="color: var(--tg-theme-hint-color); font-size: 12px;">v1.0.0</span>
                             </button>
                         </div>
+                    </div>
+
+                    <div style="margin-top: 25px;">
+                        <button onclick="window.MarketplaceModule.showMarketplace(window.app)" class="btn btn-special" style="width: 100%; padding: 15px; background: linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%); color: #333; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer;">
+                            🚀 Стати розробником
+                        </button>
                     </div>
 
                     <style>

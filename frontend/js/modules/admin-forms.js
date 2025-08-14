@@ -16,7 +16,6 @@ Object.assign(window.AdminModule, {
                 <form id="archive-form" style="max-width: 600px;">
                     ${this.getFormFields()}
 
-                    <!-- Кнопки -->
                     <div style="display: flex; gap: 15px;">
                         <button type="submit" style="flex: 1; padding: 15px; background: var(--primary-color); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;">
                             ✅ Створити товар
@@ -58,7 +57,6 @@ Object.assign(window.AdminModule, {
                     <form id="edit-archive-form" style="max-width: 600px;">
                         ${this.getFormFields(archive)}
 
-                        <!-- Статистика -->
                         <div class="form-group" style="margin-bottom: 30px; padding: 15px; background: var(--tg-theme-secondary-bg-color); border-radius: 8px;">
                             <h4 style="margin: 0 0 10px; color: var(--primary-color);">📊 Статистика</h4>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px;">
@@ -70,7 +68,6 @@ Object.assign(window.AdminModule, {
                             </div>
                         </div>
 
-                        <!-- Кнопки -->
                         <div style="display: flex; gap: 15px;">
                             <button type="submit" style="flex: 1; padding: 15px; background: var(--primary-color); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;">
                                 💾 Зберегти зміни
@@ -138,20 +135,10 @@ Object.assign(window.AdminModule, {
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">Опис (українською) *</label>
                 <textarea id="${prefix}description_ua" required rows="3" placeholder="Детальний опис товару українською мовою" style="width: 100%; padding: 12px; border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 8px; font-size: 16px; resize: vertical;">${archive ? (archive.description.ua || '') : ''}</textarea>
             </div>
-             <div class="form-group" style="margin-bottom: 20px;">
+
+            <div class="form-group" style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">📸 Зображення товару</label>
-                <div id="image-drop-zone"
-                     ondrop="AdminUploadModule.handleDrop(event)"
-                     ondragover="AdminUploadModule.handleDragOver(event)"
-                     ondragleave="AdminUploadModule.handleDragLeave(event)"
-                     style="border: 2px dashed #ddd; border-radius: 8px; padding: 20px; text-align: center; transition: background-color 0.2s, border-color 0.2s;">
-                    <input type="file" id="images-upload" multiple accept="image/*" style="display: none;" onchange="AdminUploadModule.handleFileSelect(this.files)">
-                    <p style="color: var(--tg-theme-hint-color); margin:0 0 15px;">Перетягніть файли сюди або</p>
-                    <button type="button" onclick="document.getElementById('images-upload').click()" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                        📷 Вибрати фото
-                    </button>
-                    <div id="images-preview" style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;"></div>
-                </div>
+                ${window.AdminUploadEnhanced.createImageUploadZone()}
                 <input type="hidden" id="image_paths_hidden" value="${isEdit && archive ? JSON.stringify(archive.image_paths) : '[]'}">
             </div>
 

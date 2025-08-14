@@ -64,7 +64,7 @@ class ProductReviewCreate(BaseModel):
 class WithdrawalRequest(BaseModel):
     """Запит на виплату"""
     amount: float = Field(..., gt=0)
-    payment_method: str = Field(..., regex="^(crypto|bank|paypal)$")
+    payment_method: str = Field(..., pattern="^(crypto|bank|paypal)$") # ВИПРАВЛЕНО ТУТ
     payment_details: Dict
 
 
@@ -764,7 +764,7 @@ async def get_marketplace_products(
         search: Optional[str] = None,
         min_price: Optional[float] = None,
         max_price: Optional[float] = None,
-        sort_by: str = Query("newest", regex="^(newest|popular|rating|price_asc|price_desc)$"),
+        sort_by: str = Query("newest", pattern="^(newest|popular|rating|price_asc|price_desc)$"), # ВИПРАВЛЕНО ТУТ
         page: int = Query(1, ge=1),
         session: AsyncSession = Depends(get_session)
 ):
