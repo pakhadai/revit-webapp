@@ -1,7 +1,7 @@
 # backend/models/__init__.py
 # ВИДАЛІТЬ ВСІ СТАРІ ВЕРСІЇ І ЗАЛИШТЕ ТІЛЬКИ ЦЮ
 
-from .user import User
+from .user import User, UserRole
 from .archive import Archive, ArchivePurchase
 from .order import Order, OrderItem
 from .payment import Payment
@@ -22,6 +22,7 @@ from .marketplace import (
 
 __all__ = [
     'User',
+    'UserRole',
     'Archive',
     'ArchivePurchase',
     'Order',

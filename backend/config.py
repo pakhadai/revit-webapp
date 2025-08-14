@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     DEBUG: bool = True
 
+    ADMIN_TELEGRAM_IDS: str = ""
+
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./database/database.db"
     DATABASE_ECHO: bool = False
@@ -87,3 +89,16 @@ settings.STATIC_DIR.mkdir(exist_ok=True)
 settings.MEDIA_DIR.mkdir(exist_ok=True)
 settings.PREMIUM_ARCHIVES_DIR.mkdir(parents=True, exist_ok=True)
 settings.FREE_ARCHIVES_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@property
+def admin_ids_list(self) -> list:
+    """Повертає список Telegram ID адміністраторів"""
+    if not self.ADMIN_TELEGRAM_IDS:
+        return []
+    return [id.strip() for id in self.ADMIN_TELEGRAM_IDS.split(',') if id.strip()]
+
+
+class Config:
+    env_file = ".env"
+    case_sensitive = False

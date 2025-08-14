@@ -11,6 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from api.user_settings import router as user_settings_router
 from api.marketplace import router as marketplace_router
+from static_files import setup_static_files
 from limiter import limiter
 from pathlib import Path
 
@@ -89,6 +90,7 @@ async def lifespan(app: FastAPI):
 
 # --- СТВОРЕННЯ ДОДАТКУ ---
 app = FastAPI(title="RevitBot Web API", version="1.0.0", lifespan=lifespan)
+setup_static_files(app)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 os.makedirs("media/archives", exist_ok=True)
@@ -105,6 +107,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # --- ПІДКЛЮЧЕННЯ ВСІХ РОУТЕРІВ ---
@@ -129,12 +132,9 @@ app.include_router(uploads_router, prefix="/api/uploads", tags=["uploads"])
 app.include_router(user_settings_router, prefix="/api/users", tags=["user-settings"])
 app.include_router(marketplace_router, prefix="/api/marketplace", tags=["marketplace"])
 
-# --- ТЕСТОВІ ЕНДПОІНТИ --- (код без змін)
-
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok"}
-
 
 @app.get("/")
 async def root():

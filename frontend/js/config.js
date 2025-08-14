@@ -1,7 +1,7 @@
 // Configuration file
 export const config = {
-    // API Configuration
-    API_URL: '',
+    // API Configuration - тепер без URL, бо все на одному домені!
+    API_URL: '',  // Пустий, бо frontend і backend на одному домені
 
     // App Configuration
     APP_NAME: 'RevitBot Store',
@@ -21,7 +21,7 @@ export const config = {
 
     // Languages
     SUPPORTED_LANGUAGES: ['ua', 'en', 'de'],
-    DEFAULT_LANGUAGE: 'en',
+    DEFAULT_LANGUAGE: 'ua',
     RTL_LANGUAGES: ['ar', 'he', 'fa', 'ur'],
 
     // Pagination

@@ -1,89 +1,68 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, Text
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, Text, Enum as SQLEnum
 from sqlalchemy.sql import func
 from database import Base
-import uuid
+import enum
+
+
+# Визначаємо UserRole як enum
+class UserRole(enum.Enum):
+    USER = "user"
+    MODERATOR = "moderator"
+    ADMIN = "admin"
+    SUPER_ADMIN = "super_admin"
 
 
 class User(Base):
-    __tablename__ = 'users'
+    __tablename__ = "users"
 
-    # Primary key
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, unique=True, nullable=False, index=True)  # Telegram ID
+    # Основні поля
+    id = Column(Integer, primary_key=True, index=True)
+    telegram_id = Column(String, unique=True, index=True, nullable=False)
 
-    # User info
-    username = Column(String(255), nullable=True)
-    full_name = Column(String(255), nullable=True)
-    phone = Column(String(50), nullable=True)
-    language_code = Column(String(10), default='en')
+    # Telegram дані
+    username = Column(String, nullable=True)  # @username
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
+    language_code = Column(String, default="ua")
+    avatar_url = Column(String, nullable=True)  # URL аватара
 
-    # Role and permissions
-    role = Column(String(50), default='user')  # user, client, premium, admin
-    is_admin = Column(Boolean, default=False)
+    # Роль і права (ВАЖЛИВО - використовуємо SQLEnum правильно)
+    role = Column(SQLEnum(UserRole), default=UserRole.USER)
+    is_active = Column(Boolean, default=True)
+    is_premium = Column(Boolean, default=False)  # Telegram Premium
 
-    # Subscription
-    subscription_start = Column(DateTime, nullable=True)
+    # Підписка
+    has_subscription = Column(Boolean, default=False)
     subscription_until = Column(DateTime, nullable=True)
-    has_active_subscription = Column(Boolean, default=False)  # НОВЕ
 
-    # Bonuses and referrals
-    bonuses = Column(Integer, default=0)
-    referral_code = Column(String(50), unique=True, nullable=True)
+    # Бонуси і баланс
+    balance = Column(Float, default=0.0)
+    bonus_balance = Column(Integer, default=0)
+    total_spent = Column(Float, default=0.0)
+
+    # VIP статус
+    vip_level = Column(String, default="bronze")  # bronze, silver, gold, diamond
+
+    # Реферальна система
+    referral_code = Column(String, unique=True, nullable=True)
     referred_by = Column(Integer, nullable=True)
-    invited_count = Column(Integer, default=0)
+    referral_earnings = Column(Float, default=0.0)
 
-    # НОВІ поля для бонусної системи
-    total_bonuses_earned = Column(Integer, default=0)  # Всього зароблено бонусів
-    total_bonuses_spent = Column(Integer, default=0)  # Всього витрачено бонусів
-    referral_earnings = Column(Integer, default=0)  # Заробіток з рефералів
+    # Дати
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    last_active = Column(DateTime(timezone=True), server_default=func.now())
 
-    # VIP система
-    vip_level = Column(String(20), default='bronze')  # bronze, silver, gold, diamond
-    total_purchases_amount = Column(Float, default=0)  # Загальна сума покупок
+    # Daily bonus
+    daily_bonus_streak = Column(Integer, default=0)
+    last_daily_bonus = Column(DateTime, nullable=True)
 
-    # Налаштування сповіщень
-    notify_new_archives = Column(Boolean, default=True)
-    notify_promotions = Column(Boolean, default=True)
-    notify_bonuses = Column(Boolean, default=True)
-    notify_order_status = Column(Boolean, default=True)
-    notify_subscription_expiry = Column(Boolean, default=True)
+    # Налаштування
+    notifications_enabled = Column(Boolean, default=True)
+    email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
 
-    # Налаштування інтерфейсу
-    theme = Column(String(20), default='auto')
-    compact_view = Column(Boolean, default=False)
-    show_prices_with_vat = Column(Boolean, default=False)
-
-    # Налаштування конфіденційності
-    profile_visibility = Column(String(20), default='public')
-    show_purchase_history = Column(Boolean, default=True)
-    allow_friend_requests = Column(Boolean, default=True)
-
-    # Персональна інформація
-    display_name = Column(String(100), nullable=True)
+    # Додаткові поля для профілю
     bio = Column(Text, nullable=True)
-    country = Column(String(2), nullable=True)
-    timezone = Column(String(50), default='Europe/Kiev')
-
-    # Безпека
-    email_verified = Column(Boolean, default=False)
-    phone_verified = Column(Boolean, default=False)
-    two_factor_enabled = Column(Boolean, default=False)
-    last_settings_update = Column(DateTime, nullable=True)
-
-    # Timestamps
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-    last_active_at = Column(DateTime, nullable=True)  # НОВЕ
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Генеруємо унікальний реферальний код при створенні
-        if not self.referral_code:
-            self.referral_code = self.generate_referral_code()
-
-    def generate_referral_code(self):
-        """Генерує унікальний реферальний код"""
-        return f"REF{self.user_id}{uuid.uuid4().hex[:6].upper()}"
-
-    def __repr__(self):
-        return f"<User {self.username or self.user_id}>"
+    country = Column(String, nullable=True)
+    timezone = Column(String, default="Europe/Kiev")
