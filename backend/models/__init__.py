@@ -13,6 +13,12 @@ from .archive_rating import ArchiveRating
 from .notification import Notification
 from .comment import Comment
 from .promo_code import PromoCode, DiscountType
+from .marketplace import (
+    DeveloperStatus, ProductStatus, TransactionType, WithdrawalStatus,
+    DeveloperApplication, DeveloperProfile, MarketplaceProduct,
+    MarketplaceTransaction, DeveloperWithdrawal, ProductReview,
+    DeveloperAnalytics
+)
 
 __all__ = [
     'User',
@@ -36,5 +42,16 @@ __all__ = [
     'Comment',
     'Notification',
     'PromoCode',
-    'DiscountType'
+    'DiscountType',
+    'DeveloperStatus',
+    'ProductStatus',
+    'TransactionType',
+    'WithdrawalStatus',
+    'DeveloperApplication',
+    'DeveloperProfile',
+    'MarketplaceProduct',
+    'MarketplaceTransaction',
+    'DeveloperWithdrawal',
+    'ProductReview',
+    'DeveloperAnalytics'
 ]
