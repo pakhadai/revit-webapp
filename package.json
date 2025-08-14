@@ -2,6 +2,7 @@
   "name": "revit-webapp",
   "version": "1.0.0",
   "description": "Telegram Web App for Revit Families",
+  "proxy": "http://localhost:8001",
   "scripts": {
     "dev:frontend": "serve -s frontend -l 8000",
     "dev:backend": "cd backend && uvicorn main:app --reload --port 8001",

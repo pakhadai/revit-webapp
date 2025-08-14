@@ -1,9 +1,7 @@
 // Configuration file
 export const config = {
     // API Configuration
-    API_URL: process.env.NODE_ENV === 'production'
-        ? 'https://f8da633a450c.ngrok-free.app/'
-        : 'http://localhost:8001',
+    API_URL: '',
 
     // App Configuration
     APP_NAME: 'RevitBot Store',
