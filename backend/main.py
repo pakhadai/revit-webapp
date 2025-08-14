@@ -130,6 +130,12 @@ app.include_router(user_settings_router, prefix="/api/users", tags=["user-settin
 app.include_router(marketplace_router, prefix="/api/marketplace", tags=["marketplace"])
 
 # --- ТЕСТОВІ ЕНДПОІНТИ --- (код без змін)
+
+@app.get("/api/health")
+async def health_check():
+    return {"status": "ok"}
+
+
 @app.get("/")
 async def root():
     return {"status": "ok", "message": "RevitBot API is running", "version": "1.0.0"}

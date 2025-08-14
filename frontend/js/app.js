@@ -1,4 +1,6 @@
 // RevitBot Web App - Основний файл (Виправлення помилки ініціалізації)
+import { config } from './config.js';
+
 (function() {
     'use strict';
 
@@ -56,7 +58,7 @@
     class RevitWebApp {
         constructor() {
             this.storage = new Storage();
-            this.api = new Api(this.storage, 'https://f8da633a450c.ngrok-free.app/');
+            this.api = new Api(this.storage, config.API_URL);
             this.tg = new TelegramWebApp();
             this.currentPage = 'home';
             this.user = null;

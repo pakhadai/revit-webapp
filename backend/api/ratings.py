@@ -80,7 +80,7 @@ async def submit_rating(
     if not isinstance(rating_value, int) or not (1 <= rating_value <= 5):
         raise HTTPException(status_code=422, detail="Rating must be an integer between 1 and 5.")
 
-    has_access = await check_archive_access(current_user.id, archive_id, session)
+    has_access = await check_user_access(current_user.id, archive_id, session)
     if not has_access:
         raise HTTPException(status_code=403, detail="You can only rate archives you have access to.")
 

@@ -9,6 +9,7 @@ from database import get_session
 from models.archive import Archive, ArchivePurchase
 from models.order import Order, OrderItem
 from models.user import User
+from models.bonus import BonusTransaction, BonusTransactionType
 from models.notification import Notification
 from models.promo_code import PromoCode, DiscountType
 from config import settings
@@ -243,9 +244,6 @@ async def create_order(
 
         # Оновлюємо VIP статус
         await update_vip_status_after_purchase(current_user, order, session)
-
-        # Нараховуємо кешбек
-        await process_cashback(current_user, order, session)
 
         order.status = "completed"
         order.completed_at = datetime.now(timezone.utc)

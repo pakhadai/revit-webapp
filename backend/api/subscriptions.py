@@ -170,7 +170,7 @@ async def create_subscription(
 
     subscription = Subscription(
         user_id=current_user.id,
-        plan=SubscriptionPlan.YEARLY if plan == "yearly" else SubscriptionPlan.MONTHLY,
+        plan=SubscriptionPlan.YEARLY.value if plan == "yearly" else SubscriptionPlan.MONTHLY.value,
         status=SubscriptionStatus.ACTIVE if payment_method == "bonuses" else SubscriptionStatus.PENDING,
         start_date=now,
         end_date=end_date,

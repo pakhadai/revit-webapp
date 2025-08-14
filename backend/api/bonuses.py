@@ -87,10 +87,11 @@ async def claim_daily_bonus(
     bonus_status.streak_count = new_streak
     bonus_status.last_claim_date = get_kyiv_time().date()
     bonus_status.streak_restored = False
-    bonus_status.total_claimed += total_reward
-    bonus_status.total_claims += 1
+
+    bonus_status.total_claimed = (bonus_status.total_claimed or 0) + total_reward
+    bonus_status.total_claims = (bonus_status.total_claims or 0) + 1
     if is_jackpot:
-        bonus_status.slot_wins += 1
+        bonus_status.slot_wins = (bonus_status.slot_wins or 0) + 1
 
     # Нараховуємо бонуси
     current_user.bonuses += total_reward
