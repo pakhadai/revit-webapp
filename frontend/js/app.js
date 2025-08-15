@@ -317,6 +317,10 @@ class RevitWebApp {
 
     async authenticate() {
         try {
+
+            const rawInitData = this.tg?.initData;
+            alert('DEBUG INFO:\n\ninitData: ' + rawInitData);
+
             const initData = this.tg?.initData || "dev_mode=true";
 
             if (!initData) {
