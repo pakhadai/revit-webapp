@@ -136,10 +136,10 @@ window.CartModule = {
 
     // Видалити з кошика
     removeFromCart(productId) {
-        this.app.cart = this.app.cart.filter(item => item.id != productId);
-        this.app.storage.set('cart', this.app.cart);
-        this.app.updateCartBadge();
-        this.app.loadPage('cart');
+        // Використовуємо app з window, бо це onclick handler
+        const app = window.app;
+        app.removeFromCart(productId);
+        app.loadPage('cart'); // Перезавантажуємо сторінку корзини
     },
 
     // Застосувати промокод

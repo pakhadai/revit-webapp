@@ -160,6 +160,104 @@ class RevitWebApp {
         this.currentLang = 'ua';
         this.cart = this.storage.get('cart', []);
         this.promoCode = null;
+        this.productsCache = [];
+    }
+
+    async addToCart(productId) {
+        try {
+            // Отримуємо інформацію про товар
+            let product;
+            if (this.productsCache && this.productsCache.length > 0) {
+                product = this.productsCache.find(p => p.id === productId);
+            }
+
+            if (!product) {
+                // Якщо товару немає в кеші, завантажуємо з сервера
+                product = await this.api.get(`/api/archives/${productId}`);
+            }
+
+            if (!product) {
+                this.tg.showAlert('Товар не знайдено');
+                return;
+            }
+
+            // Перевіряємо чи вже є в корзині
+            const existingItem = this.cart.find(item => item.id === productId);
+
+            if (existingItem) {
+                this.tg.showAlert('Товар вже в корзині!');
+                return;
+            }
+
+            // Додаємо в корзину
+            const cartItem = {
+                id: product.id,
+                title: product.title,
+                code: product.code,
+                price: product.price,
+                finalPrice: product.discount_percent > 0
+                    ? product.price * (1 - product.discount_percent / 100)
+                    : product.price,
+                quantity: 1,
+                image: product.image_paths?.[0] || null
+            };
+
+            this.cart.push(cartItem);
+            this.storage.set('cart', this.cart);
+            this.updateCartBadge();
+
+            // Оновлюємо кнопку товару
+            const btn = document.getElementById(`product-btn-${productId}`);
+            if (btn) {
+                btn.textContent = this.t('buttons.inCart');
+                btn.disabled = true;
+                btn.style.backgroundColor = '#b0b0b0';
+                btn.style.cursor = 'not-allowed';
+            }
+
+            this.tg.showAlert('✅ Додано в корзину!');
+        } catch (error) {
+            console.error('Add to cart error:', error);
+            this.tg.showAlert('Помилка додавання в корзину');
+        }
+    }
+
+    // Видалити з корзини
+    removeFromCart(productId) {
+        this.cart = this.cart.filter(item => item.id !== productId);
+        this.storage.set('cart', this.cart);
+        this.updateCartBadge();
+
+        // Оновлюємо кнопку товару якщо вона є на сторінці
+        const btn = document.getElementById(`product-btn-${productId}`);
+        if (btn) {
+            btn.textContent = this.t('buttons.buy');
+            btn.disabled = false;
+            btn.style.backgroundColor = 'var(--primary-color)';
+            btn.style.cursor = 'pointer';
+            btn.onclick = () => this.addToCart(productId);
+        }
+    }
+
+    // Оновити бейдж корзини
+    updateCartBadge() {
+        const badge = document.getElementById('cart-badge');
+        if (badge) {
+            const count = this.cart.length;
+            if (count > 0) {
+                badge.textContent = count;
+                badge.style.display = 'block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    }
+
+    // Очистити корзину
+    clearCart() {
+        this.cart = [];
+        this.storage.set('cart', []);
+        this.updateCartBadge();
     }
 
     async init() {
@@ -184,10 +282,6 @@ class RevitWebApp {
             }
 
             this.displayUserInfo();
-
-            if (this.user.is_admin) {
-                this.enableAdminFeatures();
-            }
 
             await this.loadScript('js/modules/onboarding.js');
             const isNew = await window.OnboardingModule.checkIfNewUser(this);
@@ -256,37 +350,77 @@ class RevitWebApp {
         const headerActions = document.querySelector('.header-actions');
         if (!headerActions || !this.user) return;
 
+        // Видаляємо попередню інформацію користувача якщо є
+        const existingUserInfo = headerActions.querySelector('.user-info');
+        if (existingUserInfo) {
+            existingUserInfo.remove();
+        }
+
         const userInfo = document.createElement('div');
         userInfo.className = 'user-info';
+
+        // Використовуємо реальні дані користувача
+        const displayName = this.user.first_name || this.user.username || 'User';
+        const isAdmin = this.user.is_admin || this.user.role === 'admin' || this.user.role === 'super_admin';
+
         userInfo.innerHTML = `
             ${this.user.avatar_url ?
                 `<img src="${this.user.avatar_url}" alt="Avatar" class="user-avatar">` :
                 '<div class="user-avatar-placeholder">👤</div>'
             }
-            <span class="user-name">${this.user.first_name || this.user.username || 'User'}</span>
-            ${this.user.is_admin ? '<span class="admin-badge">Admin</span>' : ''}
+            <span class="user-name">${displayName}</span>
+            ${isAdmin ? '<span class="admin-badge">Admin</span>' : ''}
         `;
 
         headerActions.insertBefore(userInfo, headerActions.firstChild);
-        this.updateCartCount();
+        this.updateCartBadge();
+
+        // Вмикаємо адмін функції тільки якщо користувач адмін
+        if (isAdmin) {
+            this.enableAdminFeatures();
+        }
     }
 
     enableAdminFeatures() {
-        const nav = document.getElementById('bottom-nav');
-        if (!nav || nav.querySelector('.admin-nav')) return;
+        // Перевірка прав адміна
+        const isAdmin = this.user?.is_admin || this.user?.role === 'admin' || this.user?.role === 'super_admin';
 
-        const adminBtn = document.createElement('button');
-        adminBtn.className = 'nav-item admin-nav';
-        adminBtn.dataset.page = 'admin';
+        if (!isAdmin) {
+            console.log('User is not admin, skipping admin features');
+            return;
+        }
+
+        const nav = document.getElementById('bottom-nav');
+        if (!nav) return;
+
+        // Перевіряємо чи вже є кнопка адміна
+        if (nav.querySelector('[data-page="admin"]')) return;
+
+        // Створюємо кнопку адміна
+        const adminBtn = document.createElement('a');
+        adminBtn.href = '#admin';
+        adminBtn.className = 'nav-item';
+        adminBtn.setAttribute('data-page', 'admin');
+        adminBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        adminBtn.style.color = 'white';
+
         adminBtn.innerHTML = `
-            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg class="nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M12 15l-2 5 9-11h-4l2-5-9 11h4z"/>
             </svg>
-            <span class="nav-label">Admin</span>
+            <span class="nav-label">Адмін</span>
         `;
 
-        adminBtn.addEventListener('click', () => this.loadPage('admin'));
+        // Додаємо обробник кліку
+        adminBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.loadPage('admin');
+        });
+
+        // Додаємо кнопку в навігацію
         nav.appendChild(adminBtn);
+
+        console.log('Admin features enabled for user:', this.user.first_name || this.user.username);
     }
 
     updateCartCount() {
@@ -392,10 +526,25 @@ class RevitWebApp {
         const navItems = document.querySelectorAll('.nav-item');
         navItems.forEach(item => {
             item.addEventListener('click', (e) => {
-                const page = e.currentTarget.dataset.page;
-                if (page) this.loadPage(page);
+                e.preventDefault();
+
+                // Отримуємо сторінку з data-page або href
+                let page = item.dataset.page;
+                if (!page) {
+                    const href = item.getAttribute('href');
+                    if (href && href.startsWith('#')) {
+                        page = href.substring(1);
+                    }
+                }
+
+                if (page) {
+                    this.loadPage(page);
+                }
             });
         });
+
+        // Оновлюємо бейдж корзини при ініціалізації
+        this.updateCartBadge();
     }
 
     setupSearch() {
@@ -420,6 +569,9 @@ class RevitWebApp {
                     break;
                 case 'catalog':
                     await this.loadCatalogPage();
+                    break;
+                case 'cart':
+                    await this.loadCartPage();
                     break;
                 case 'bonuses':
                     await this.loadBonusesPage();
@@ -506,22 +658,294 @@ class RevitWebApp {
 
     async loadHomePage() {
         const content = document.getElementById('app-content');
-        content.innerHTML = '<h2>Головна сторінка</h2>';
+
+        try {
+            // Завантажуємо товари для головної сторінки
+            let featuredProducts = [];
+
+            try {
+                const response = await this.api.get('/api/archives?limit=6');
+                featuredProducts = response.items || response || [];
+
+                // Зберігаємо в кеш
+                if (featuredProducts.length > 0) {
+                    this.productsCache = [...featuredProducts];
+                }
+            } catch (error) {
+                console.log('Failed to load products:', error);
+                featuredProducts = [];
+            }
+
+            content.innerHTML = `
+                <div class="home-page">
+                    <!-- Банер привітання -->
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; padding: 30px; margin: 20px; text-align: center; color: white;">
+                        <h1 style="font-size: 28px; margin-bottom: 10px;">
+                            👋 ${this.t('home.welcome') || `Вітаємо, ${this.user?.first_name || 'друже'}!`}
+                        </h1>
+                        <p style="font-size: 16px; opacity: 0.9;">
+                            ${this.t('home.subtitle') || 'Найбільша колекція Revit сімейств для ваших проектів'}
+                        </p>
+                    </div>
+
+                    <!-- Швидкі дії -->
+                    <div style="padding: 0 20px;">
+                        <h3 style="margin-bottom: 15px;">${this.t('home.quickActions') || '⚡ Швидкі дії'}</h3>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 25px;">
+                            <button onclick="window.app.loadPage('catalog')"
+                                    style="padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer;">
+                                <span style="font-size: 24px;">📦</span>
+                                ${this.t('navigation.catalog') || 'Каталог'}
+                            </button>
+                            <button onclick="window.app.loadPage('bonuses')"
+                                    style="padding: 20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer;">
+                                <span style="font-size: 24px;">💎</span>
+                                ${this.t('home.bonuses') || 'Бонуси'}
+                            </button>
+                        </div>
+
+                        <!-- Статистика користувача -->
+                        ${this.user ? `
+                            <div style="background: var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 15px; margin-bottom: 25px;">
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center;">
+                                    <div>
+                                        <div style="font-size: 24px; font-weight: bold; color: var(--primary-color);">${this.user.bonuses || 0}</div>
+                                        <div style="font-size: 12px; color: var(--tg-theme-hint-color);">Бонусів</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 24px; font-weight: bold; color: var(--primary-color);">${this.cart.length}</div>
+                                        <div style="font-size: 12px; color: var(--tg-theme-hint-color);">В корзині</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 24px; font-weight: bold; color: var(--primary-color);">${this.user.vip_level || 'Bronze'}</div>
+                                        <div style="font-size: 12px; color: var(--tg-theme-hint-color);">VIP рівень</div>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- Рекомендовані товари -->
+                        <h3 style="margin-bottom: 15px;">${this.t('home.featured') || '🔥 Рекомендовані товари'}</h3>
+
+                        ${featuredProducts.length > 0 ? `
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
+                                ${featuredProducts.slice(0, 6).map(product => this.getHomeProductCard(product)).join('')}
+                            </div>
+
+                            <button onclick="window.app.loadPage('catalog')"
+                                    style="width: 100%; padding: 15px; background: var(--tg-theme-secondary-bg-color); border: none; border-radius: 10px; font-size: 16px; cursor: pointer;">
+                                Переглянути всі товари →
+                            </button>
+                        ` : `
+                            <div style="text-align: center; padding: 40px; background: var(--tg-theme-secondary-bg-color); border-radius: 12px;">
+                                <div style="font-size: 48px; margin-bottom: 10px;">📦</div>
+                                <p style="color: var(--tg-theme-hint-color);">Товари завантажуються...</p>
+                                <button onclick="window.app.loadPage('catalog')"
+                                        style="margin-top: 15px; padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer;">
+                                    Перейти в каталог
+                                </button>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+
+        } catch (error) {
+            console.error('Home page error:', error);
+            content.innerHTML = `
+                <div style="text-align: center; padding: 50px;">
+                    <h2>Помилка завантаження</h2>
+                    <p>${error.message}</p>
+                    <button onclick="location.reload()" style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        Перезавантажити
+                    </button>
+                </div>
+            `;
+        }
+    }
+
+    // Допоміжний метод для картки товару на головній
+    getHomeProductCard(product) {
+        const lang = this.currentLang || 'ua';
+        const title = product.title?.[lang] || product.title?.en || 'No title';
+        const isInCart = this.cart.some(item => item.id === product.id);
+        const finalPrice = product.discount_percent > 0
+            ? (product.price * (1 - product.discount_percent / 100)).toFixed(2)
+            : product.price;
+
+        // Перевіряємо наявність зображення
+        const imagePath = product.image_paths?.[0];
+        const fullImagePath = imagePath && !imagePath.startsWith('http')
+            ? `${this.api.baseURL}/${imagePath}`
+            : imagePath;
+
+        return `
+            <div style="background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 12px; cursor: pointer;"
+                 onclick="window.ProductDetailsModule?.show(${product.id})">
+                <div style="height: 120px; background: ${fullImagePath ? `url('${fullImagePath}')` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}; background-size: cover; background-position: center; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
+                    ${!fullImagePath ? `<span style="font-size: 40px;">${product.archive_type === 'premium' ? '💎' : '📦'}</span>` : ''}
+                </div>
+                <div style="font-weight: 500; margin-bottom: 5px; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${title}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: bold; color: var(--primary-color);">$${finalPrice}</span>
+                    ${product.discount_percent > 0 ? `
+                        <span style="background: #ff4444; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px;">
+                            -${product.discount_percent}%
+                        </span>
+                    ` : ''}
+                </div>
+                <button id="home-product-btn-${product.id}"
+                        onclick="event.stopPropagation(); window.app.addToCart(${product.id})"
+                        style="width: 100%; margin-top: 8px; padding: 8px; background: ${isInCart ? '#b0b0b0' : 'var(--primary-color)'}; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: ${isInCart ? 'not-allowed' : 'pointer'};"
+                        ${isInCart ? 'disabled' : ''}>
+                    ${isInCart ? this.t('buttons.inCart') : this.t('buttons.buy')}
+                </button>
+            </div>
+        `;
     }
 
     async loadCatalogPage() {
         const content = document.getElementById('app-content');
-        content.innerHTML = '<h2>Каталог</h2>';
+
+        try {
+            // Завантажуємо модуль каталогу
+            if (!window.CatalogModule) {
+                await this.loadScript('js/modules/catalog.js');
+            }
+
+            const catalogHtml = await window.CatalogModule.getPage(this);
+            content.innerHTML = catalogHtml;
+
+            // Ініціалізуємо infinite scroll
+            await window.CatalogModule.initInfiniteScroll(this);
+
+        } catch (error) {
+            console.error('Catalog page error:', error);
+            content.innerHTML = '<div class="error">Помилка завантаження каталогу</div>';
+        }
+    }
+
+    async loadCartPage() {
+        const content = document.getElementById('app-content');
+
+        try {
+            // Завантажуємо модуль корзини
+            if (!window.CartModule) {
+                await this.loadScript('js/modules/cart.js');
+            }
+
+            // Ініціалізуємо модуль з app
+            window.CartModule.init(this);
+
+            const cartHtml = window.CartModule.getPage();
+            content.innerHTML = cartHtml;
+
+        } catch (error) {
+            console.error('Cart page error:', error);
+            content.innerHTML = '<div class="error">Помилка завантаження корзини</div>';
+        }
     }
 
     async loadBonusesPage() {
         const content = document.getElementById('app-content');
-        content.innerHTML = '<h2>Бонуси</h2>';
+
+        try {
+            // Завантажуємо модуль щоденних бонусів
+            if (!window.DailyBonusModule) {
+                await this.loadScript('js/modules/daily-bonus.js');
+            }
+
+            content.innerHTML = `
+                <div class="bonuses-page p-3">
+                    <h2 style="margin-bottom: 20px;">💎 Бонуси</h2>
+
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; padding: 20px; margin-bottom: 20px; color: white;">
+                        <div style="font-size: 14px; opacity: 0.9;">Ваш баланс:</div>
+                        <div style="font-size: 32px; font-weight: bold;">
+                            ${this.user?.bonuses || 0} бонусів
+                        </div>
+                        <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">
+                            100 бонусів = $1 USD
+                        </div>
+                    </div>
+
+                    <button onclick="window.DailyBonusModule?.showModal(window.app)"
+                            style="width: 100%; padding: 15px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer;">
+                        🎰 Щоденний бонус
+                    </button>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Bonuses page error:', error);
+            content.innerHTML = '<div class="error">Помилка завантаження сторінки бонусів</div>';
+        }
+    }
+
+    // Допоміжний метод для генерації картки товару
+    getProductCard(archive) {
+        const lang = this.currentLang || 'ua';
+        const title = archive.title?.[lang] || archive.title?.en || 'No title';
+        const isInCart = this.cart.some(item => item.id === archive.id);
+        const finalPrice = archive.discount_percent > 0
+            ? (archive.price * (1 - archive.discount_percent / 100)).toFixed(2)
+            : archive.price;
+
+        return `
+            <div style="background: var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 10px;">
+                <div style="height: 100px; background: #f0f0f0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 40px; margin-bottom: 10px;">
+                    ${archive.archive_type === 'premium' ? '💎' : '📦'}
+                </div>
+                <div style="font-weight: 500; margin-bottom: 5px; font-size: 14px;">${title}</div>
+                <div style="font-weight: bold; color: var(--primary-color); margin-bottom: 10px;">$${finalPrice}</div>
+                <button id="product-btn-${archive.id}"
+                        onclick="window.app.addToCart(${archive.id})"
+                        style="width: 100%; padding: 8px; background: ${isInCart ? '#b0b0b0' : 'var(--primary-color)'}; color: white; border: none; border-radius: 6px; cursor: ${isInCart ? 'not-allowed' : 'pointer'};"
+                        ${isInCart ? 'disabled' : ''}>
+                    ${isInCart ? this.t('buttons.inCart') : this.t('buttons.buy')}
+                </button>
+            </div>
+        `;
     }
 
     async loadAdminPage() {
         const content = document.getElementById('app-content');
-        content.innerHTML = '<h2>Адмін панель</h2>';
+
+        // Перевірка прав адміна
+        if (!this.user?.is_admin) {
+            content.innerHTML = `
+                <div style="text-align: center; padding: 50px;">
+                    <h2>🚫 Доступ заборонено</h2>
+                    <p>Ця сторінка доступна тільки адміністраторам</p>
+                    <button onclick="window.app.loadPage('home')" style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        На головну
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        try {
+            // Завантажуємо модуль адміна
+            if (!window.AdminModule) {
+                await this.loadScript('js/modules/admin.js');
+            }
+
+            // Отримуємо та відображаємо dashboard
+            const adminHtml = await window.AdminModule.getDashboard(this);
+            content.innerHTML = adminHtml;
+
+        } catch (error) {
+            console.error('Admin page error:', error);
+            content.innerHTML = `
+                <div style="text-align: center; padding: 50px;">
+                    <h2>⚠️ Помилка завантаження</h2>
+                    <p>${error.message}</p>
+                    <button onclick="location.reload()" style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        Перезавантажити
+                    </button>
+                </div>
+            `;
+        }
     }
 }
 

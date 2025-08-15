@@ -93,3 +93,8 @@ class User(Base):
     phone_verified = Column(Boolean, default=False)
     two_factor_enabled = Column(Boolean, default=False)
     last_settings_update = Column(DateTime, nullable=True)
+
+@property
+def is_admin(self):
+    """Property для перевірки чи користувач є адміністратором"""
+    return self.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
