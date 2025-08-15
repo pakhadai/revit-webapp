@@ -1,4 +1,4 @@
-// frontend/js/modules/onboarding.js - ПЕРЕРОБЛЕНА ВЕРСІЯ
+// frontend/js/modules/onboarding.js - ВИПРАВЛЕНА ВЕРСІЯ
 
 window.OnboardingModule = {
     currentStep: 0,
@@ -56,7 +56,6 @@ window.OnboardingModule = {
             footerButton.style.opacity = '0.5';
         }
 
-        // Лістенер для чекбокса
         const checkbox = document.getElementById('accept-rules');
         if (checkbox) {
             checkbox.addEventListener('change', (e) => {
@@ -71,7 +70,6 @@ window.OnboardingModule = {
     showReferralInput() {
         this._updateContent(this._getReferralContent());
         this._updateProgress(4);
-        // Ховаємо основну кнопку "Далі" і показуємо кнопки для реферального коду
         const footer = document.getElementById('onboarding-footer');
         if (footer) {
             footer.style.display = 'none';
@@ -80,35 +78,30 @@ window.OnboardingModule = {
 
     async completeRegistration() {
         try {
-            // ДОДАЙТЕ ЦЕЙ API ВИКЛИК
             await this.app.api.post('/api/auth/complete-onboarding', {
                 language: this.app.currentLang || 'ua',
                 referral_code: this.referralCode || null
             });
 
-            // Зберігаємо, що користувач пройшов онбординг
             this.app.storage.set('hasCompletedRegistration', true);
             this.app.storage.set('registrationDate', new Date().toISOString());
 
-            // Закриваємо модальне вікно
             const modal = document.getElementById('onboarding-modal');
             if (modal) {
                 modal.style.animation = 'fadeOut 0.3s forwards';
                 setTimeout(() => modal.remove(), 300);
             }
 
-            // Показуємо привітання
             this.app.tg.showAlert('🎉 Вітаємо! Реєстрація завершена!');
 
-            // Перезавантажуємо дані та сторінку
-            await this.app.loadUserData();
+            // Перезавантажуємо сторінку на головну
             await this.app.loadPage('home');
 
         } catch (error) {
             console.error('Registration error:', error);
             this.app.showError('Помилка завершення реєстрації');
         }
-    }
+    }, // <-- Ось тут була пропущена кома
 
     // --- РЕФЕРАЛЬНА СИСТЕМА ---
 
@@ -159,38 +152,20 @@ window.OnboardingModule = {
     _renderOnboardingShell() {
         return `
             <div id="onboarding-modal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.6); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 15px;">
-
                 <div class="onboarding-modal-content" style="background: var(--tg-theme-bg-color); max-width: 480px; width: 100%; max-height: 95vh; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
-
                     <div id="onboarding-progress" style="padding: 20px; background: var(--tg-theme-bg-color);"></div>
-
                     <div id="onboarding-content" style="flex: 1; padding: 20px 30px; overflow-y: auto; display: flex; flex-direction: column; justify-content: flex-start;"></div>
-
                     <div id="onboarding-footer" style="padding: 20px; background: var(--tg-theme-bg-color); border-top: 1px solid var(--tg-theme-secondary-bg-color);">
                         <button onclick="OnboardingModule.nextStep()" style="width: 100%; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer;">
                             Далі →
                         </button>
                     </div>
-
                 </div>
             </div>
             <style>
                 @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
-
-                .onboarding-modal-content {
-                    animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                }
-
-                @keyframes zoomIn {
-                    from {
-                        opacity: 0;
-                        transform: scale(0.9);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
-                }
+                .onboarding-modal-content { animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+                @keyframes zoomIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
             </style>
         `;
     },
@@ -226,8 +201,6 @@ window.OnboardingModule = {
             `;
         }
     },
-
-    // --- HTML-КОНТЕНТ ДЛЯ КОЖНОГО КРОКУ ---
 
     _getWelcomeContent() {
         return `
