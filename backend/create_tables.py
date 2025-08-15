@@ -27,14 +27,19 @@ async def create_all_tables():
         from models.archive import Archive, ArchivePurchase
         from models.order import Order, OrderItem
         from models.payment import Payment
-        from models.subscription import Subscription, SubscriptionArchive, SubscriptionStatus, SubscriptionPlan
-        from models.bonus import BonusTransaction, DailyBonus, UserReferral, VipLevel, BonusTransactionType
+        from models.subscription import Subscription, SubscriptionArchive
+        from models.bonus import BonusTransaction, DailyBonus, UserReferral, VipLevel
         from models.favorite import Favorite
         from models.view_history import ViewHistory
         from models.archive_rating import ArchiveRating
         from models.notification import Notification
         from models.comment import Comment
-        from models.promo_code import PromoCode, DiscountType
+        from models.promo_code import PromoCode
+        from models.marketplace import (
+            DeveloperApplication, DeveloperProfile,
+            MarketplaceProduct, MarketplaceTransaction,
+            DeveloperWithdrawal, ProductReview, DeveloperAnalytics
+        )
 
         print("✅ Всі моделі імпортовано")
 

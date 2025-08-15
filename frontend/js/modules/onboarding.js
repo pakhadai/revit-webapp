@@ -79,24 +79,36 @@ window.OnboardingModule = {
     },
 
     async completeRegistration() {
-        // Зберігаємо, що користувач пройшов онбординг
-        this.app.storage.set('hasCompletedRegistration', true);
-        this.app.storage.set('registrationDate', new Date().toISOString());
+        try {
+            // ДОДАЙТЕ ЦЕЙ API ВИКЛИК
+            await this.app.api.post('/api/auth/complete-onboarding', {
+                language: this.app.currentLang || 'ua',
+                referral_code: this.referralCode || null
+            });
 
-        // Закриваємо модальне вікно
-        const modal = document.getElementById('onboarding-modal');
-        if (modal) {
-            modal.style.animation = 'fadeOut 0.3s forwards';
-            setTimeout(() => modal.remove(), 300);
+            // Зберігаємо, що користувач пройшов онбординг
+            this.app.storage.set('hasCompletedRegistration', true);
+            this.app.storage.set('registrationDate', new Date().toISOString());
+
+            // Закриваємо модальне вікно
+            const modal = document.getElementById('onboarding-modal');
+            if (modal) {
+                modal.style.animation = 'fadeOut 0.3s forwards';
+                setTimeout(() => modal.remove(), 300);
+            }
+
+            // Показуємо привітання
+            this.app.tg.showAlert('🎉 Вітаємо! Реєстрація завершена!');
+
+            // Перезавантажуємо дані та сторінку
+            await this.app.loadUserData();
+            await this.app.loadPage('home');
+
+        } catch (error) {
+            console.error('Registration error:', error);
+            this.app.showError('Помилка завершення реєстрації');
         }
-
-        // Показуємо привітання
-        this.app.tg.showAlert('🎉 Вітаємо! Реєстрація завершена!');
-
-        // Перезавантажуємо дані та сторінку
-        await this.app.loadUserData();
-        await this.app.loadPage('home');
-    },
+    }
 
     // --- РЕФЕРАЛЬНА СИСТЕМА ---
 

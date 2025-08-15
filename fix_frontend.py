@@ -79,164 +79,151 @@ else:
     print("   ✅ config.js вже існує")
 
 # 3. Перевіряємо Service Worker
-print("\n3. Оновлення frontend/service-worker.js:")
+print("\n3. Оновлення Service Worker:")
 
 sw_path = 'frontend/service-worker.js'
 if os.path.exists(sw_path):
     with open(sw_path, 'r', encoding='utf-8') as f:
-        content = f.read()
+        sw_content = f.read()
 
-    # Збільшуємо версію кешу
-    import re
-
-    match = re.search(r"CACHE_NAME = 'revitbot-cache-v(\d+)'", content)
-    if match:
-        old_version = int(match.group(1))
-        new_version = old_version + 1
-        content = re.sub(
-            r"CACHE_NAME = 'revitbot-cache-v\d+'",
-            f"CACHE_NAME = 'revitbot-cache-v{new_version}'",
-            content
-        )
-
-        with open(sw_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        print(f"   ✅ Service Worker оновлено (v{old_version} -> v{new_version})")
+    # Перевіряємо чи є favorites.js в кеші
+    if "'/js/modules/favorites.js'" not in sw_content:
+        print("   ⚠️ favorites.js відсутній в Service Worker cache")
     else:
-        print("   ⚠️ Не вдалося оновити версію Service Worker")
+        print("   ✅ Service Worker налаштований правильно")
 else:
     print("   ❌ Service Worker не знайдено")
 
-# 4. Створюємо тестовий HTML для перевірки
-print("\n4. Створення тестової сторінки:")
+# 4. Створюємо .env файл якщо його немає
+print("\n4. Створення .env файлу:")
 
-test_html = """<!DOCTYPE html>
-<html lang="uk">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RevitBot Test</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 50px auto;
-            padding: 20px;
-            background: #f5f5f5;
+env_path = 'backend/.env'
+if not os.path.exists(env_path):
+    env_content = """# RevitBot Configuration
+
+# Telegram Bot
+BOT_TOKEN=your_bot_token_here
+TELEGRAM_BOT_USERNAME=revitbot
+
+# Admin Telegram IDs (comma separated)
+ADMIN_TELEGRAM_IDS=123456789
+
+# Database
+DATABASE_URL=sqlite+aiosqlite:///./database/database.db
+
+# Security
+SECRET_KEY=your-secret-key-change-this-in-production
+
+# Cryptomus Payment (optional)
+CRYPTOMUS_MERCHANT_UUID=
+CRYPTOMUS_API_KEY=
+CRYPTOMUS_WEBHOOK_SECRET=
+
+# App URL
+APP_URL=http://localhost:8001
+
+# Development
+DEV_MODE=true
+DEBUG=true
+"""
+
+    with open(env_path, 'w', encoding='utf-8') as f:
+        f.write(env_content)
+    print("   ✅ Створено .env файл (не забудьте додати BOT_TOKEN!)")
+else:
+    print("   ✅ .env файл вже існує")
+
+# 5. Створюємо відсутній модуль favorites.js
+print("\n5. Створення модуля favorites.js:")
+
+favorites_path = 'frontend/js/modules/favorites.js'
+if not os.path.exists(favorites_path):
+    favorites_content = """// Модуль улюблених товарів
+window.FavoritesModule = {
+    favorites: [],
+
+    async init(app) {
+        this.app = app;
+        await this.loadFavorites();
+    },
+
+    async loadFavorites() {
+        try {
+            const response = await this.app.api.get('/api/favorites');
+            this.favorites = response.items || [];
+        } catch (error) {
+            console.error('Failed to load favorites:', error);
+            this.favorites = [];
         }
-        .test-block {
-            background: white;
-            padding: 20px;
-            margin: 10px 0;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .status { font-weight: bold; }
-        .success { color: green; }
-        .error { color: red; }
-        button {
-            padding: 10px 20px;
-            margin: 5px;
-            border: none;
-            border-radius: 4px;
-            background: #2481cc;
-            color: white;
-            cursor: pointer;
-        }
-        button:hover { background: #1a5fa0; }
-    </style>
-</head>
-<body>
-    <h1>🤖 RevitBot Test Page</h1>
+    },
 
-    <div class="test-block">
-        <h2>1. API Connection Test</h2>
-        <button onclick="testAPI()">Test API</button>
-        <div id="api-result"></div>
-    </div>
+    isFavorite(archiveId) {
+        return this.favorites.some(f => f.archive_id === archiveId);
+    },
 
-    <div class="test-block">
-        <h2>2. Auth Test</h2>
-        <button onclick="testAuth()">Test Auth</button>
-        <div id="auth-result"></div>
-    </div>
-
-    <div class="test-block">
-        <h2>3. Archives Test</h2>
-        <button onclick="testArchives()">Test Archives</button>
-        <div id="archives-result"></div>
-    </div>
-
-    <script>
-        const API_URL = 'http://localhost:8001';
-
-        async function testAPI() {
-            const resultDiv = document.getElementById('api-result');
-            try {
-                const response = await fetch(API_URL + '/');
-                const data = await response.json();
-                resultDiv.innerHTML = '<span class="status success">✅ API працює!</span><br>' + 
-                                     JSON.stringify(data, null, 2);
-            } catch (error) {
-                resultDiv.innerHTML = '<span class="status error">❌ API не доступний</span><br>' + error;
+    async toggle(archiveId) {
+        try {
+            if (this.isFavorite(archiveId)) {
+                await this.app.api.delete(`/api/favorites/${archiveId}`);
+                this.favorites = this.favorites.filter(f => f.archive_id !== archiveId);
+                this.app.showToast('Видалено з улюблених', 'info');
+            } else {
+                await this.app.api.post('/api/favorites', { archive_id: archiveId });
+                this.favorites.push({ archive_id: archiveId });
+                this.app.showToast('Додано в улюблені', 'success');
             }
+            return true;
+        } catch (error) {
+            console.error('Failed to toggle favorite:', error);
+            this.app.showToast('Помилка', 'error');
+            return false;
+        }
+    },
+
+    async getPage(app) {
+        const t = (key) => app.t(key);
+        const favorites = await app.api.get('/api/favorites');
+
+        if (!favorites.items || favorites.items.length === 0) {
+            return `
+                <div class="favorites-page p-3" style="text-align: center; padding: 50px 20px;">
+                    <div style="font-size: 80px; margin-bottom: 20px;">❤️</div>
+                    <h3>Немає улюблених товарів</h3>
+                    <p style="color: var(--tg-theme-hint-color);">
+                        Додавайте товари в улюблені, щоб швидко їх знаходити
+                    </p>
+                    <button onclick="window.app.loadPage('catalog')" 
+                            style="margin-top: 20px; padding: 12px 24px; background: var(--primary-color); color: white; border: none; border-radius: 8px;">
+                        Перейти до каталогу
+                    </button>
+                </div>
+            `;
         }
 
-        async function testAuth() {
-            const resultDiv = document.getElementById('auth-result');
-            try {
-                const response = await fetch(API_URL + '/api/auth/telegram', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({initData: 'dev_mode=true'})
-                });
-                const data = await response.json();
-                resultDiv.innerHTML = '<span class="status success">✅ Auth працює!</span><br>' + 
-                                     JSON.stringify(data, null, 2);
-                if (data.token) {
-                    localStorage.setItem('test_token', data.token);
-                }
-            } catch (error) {
-                resultDiv.innerHTML = '<span class="status error">❌ Auth помилка</span><br>' + error;
-            }
-        }
+        return `
+            <div class="favorites-page p-3">
+                <h2 style="margin-bottom: 20px;">❤️ Улюблені товари</h2>
+                <div class="products-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
+                    ${favorites.items.map(item => window.CatalogModule.getProductCard(item.archive, app)).join('')}
+                </div>
+            </div>
+        `;
+    }
+};
+"""
 
-        async function testArchives() {
-            const resultDiv = document.getElementById('archives-result');
-            try {
-                const response = await fetch(API_URL + '/api/archives/list');
-                const data = await response.json();
-                resultDiv.innerHTML = '<span class="status success">✅ Archives працює!</span><br>' + 
-                                     'Знайдено архівів: ' + (data.archives?.length || 0);
-            } catch (error) {
-                resultDiv.innerHTML = '<span class="status error">❌ Archives помилка</span><br>' + error;
-            }
-        }
-    </script>
-</body>
-</html>"""
-
-test_path = 'frontend/test.html'
-with open(test_path, 'w', encoding='utf-8') as f:
-    f.write(test_html)
-print(f"   ✅ Створено тестову сторінку: {test_path}")
+    with open(favorites_path, 'w', encoding='utf-8') as f:
+        f.write(favorites_content)
+    print("   ✅ Створено модуль favorites.js")
+else:
+    print("   ✅ favorites.js вже існує")
 
 print("\n" + "=" * 60)
-print("📋 ІНСТРУКЦІЇ ДЛЯ ТЕСТУВАННЯ:")
+print("✅ FRONTEND ВИПРАВЛЕНО!")
 print("=" * 60)
-print("""
-1. Запустіть Backend сервер:
-   cd backend && uvicorn main:app --reload --port 8001
-
-2. Запустіть Frontend сервер:
-   cd frontend && python -m http.server 8000
-
-3. Відкрийте в браузері:
-   - Основний додаток: http://localhost:8000
-   - Тестова сторінка: http://localhost:8000/test.html
-
-4. На тестовій сторінці натисніть кнопки для перевірки:
-   - Test API - перевірка з'єднання
-   - Test Auth - перевірка авторизації
-   - Test Archives - перевірка завантаження архівів
-""")
+print("\n📝 Що далі:")
+print("1. Відредагуйте backend/.env - додайте BOT_TOKEN")
+print("2. Запустіть створення БД: cd backend && python create_tables.py")
+print("3. Запустіть backend: cd backend && uvicorn main:app --reload --port 8001")
+print("4. Запустіть frontend: cd frontend && python -m http.server 8000")
+print("5. Відкрийте браузер: http://localhost:8000")

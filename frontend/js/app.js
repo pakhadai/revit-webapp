@@ -102,7 +102,14 @@ import { config } from './config.js';
             this.isAvailable = !!this.tg;
         }
 
-        init() {
+        async init() {
+            console.log('=== DEBUG START ===');
+            console.log('Window.Telegram:', window.Telegram);
+            console.log('WebApp:', window.Telegram?.WebApp);
+            console.log('InitData:', window.Telegram?.WebApp?.initData);
+            console.log('InitDataUnsafe:', window.Telegram?.WebApp?.initDataUnsafe);
+            console.log('=== DEBUG END ===');
+
             if (this.isAvailable) {
                 this.tg.ready();
                 this.tg.expand();
@@ -224,7 +231,7 @@ import { config } from './config.js';
 
         async authenticate() {
             try {
-                const initData = this.tg.getInitData();
+                const initData = this.tg?.initData || "dev_mode=true";
                 this.tg.showAlert(`DEBUG :: initData = [${initData}]`);
 
                 if (!initData) {

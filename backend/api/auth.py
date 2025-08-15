@@ -191,20 +191,15 @@ async def get_telegram_avatar(telegram_id: int) -> Optional[str]:
 
 
 @router.post("/telegram")
-async def telegram_auth(
-        request: Dict,
-        session: AsyncSession = Depends(get_session)
-):
-    """Авторизація через Telegram Web App або в режимі розробки"""
-
+async def telegram_auth(request: Dict, session: AsyncSession = Depends(get_session)):
+    print(f"AUTH REQUEST: {request}")
     init_data = request.get("init_data", "")
-
-    # --- ЄДИНА ЗМІНА: БЛОК IF/ELSE ---
+    print(f"INIT DATA: {init_data}")
 
     if init_data == "dev_mode=true":
         # === РЕЖИМ РОЗРОБКИ (ДЛЯ САЙТУ) ===
         logger.info("Running in DEV (website) mode.")
-        dev_telegram_id = "123456789"  # Статичний ID для тестового юзера
+        dev_telegram_id = "123456789"
 
         result = await session.execute(
             select(User).where(User.telegram_id == dev_telegram_id)
@@ -307,11 +302,7 @@ async def telegram_auth(
             await session.commit()
             await session.refresh(user)
             is_new_user = False
-        #
-        # === ВАШ ОРИГІНАЛЬНИЙ КОД ЗАКІНЧУЄТЬСЯ ТУТ ===
-        #
 
-    # Створення токену (ваш код)
     access_token = create_access_token(
         data={
             "sub": str(user.id),
@@ -342,6 +333,33 @@ async def telegram_auth(
             "vip_level": user.vip_level,
             "referral_code": user.referral_code,
             "created_at": user.created_at.isoformat() if user.created_at else None
+        }
+    }
+
+
+@router.post("/complete-onboarding")
+async def complete_onboarding(
+        request: Dict,
+        current_user: User = Depends(get_current_user_dependency),
+        session: AsyncSession = Depends(get_session)
+):
+    """Завершення онбордингу"""
+
+    # Оновлюємо дані користувача
+    current_user.language_code = request.get("language", "ua")
+    current_user.is_onboarded = True
+
+    await session.commit()
+
+    return {
+        "success": True,
+        "user": {
+            "id": current_user.id,
+            "telegram_id": current_user.telegram_id,
+            "username": current_user.username,
+            "language_code": current_user.language_code,
+            "balance": current_user.balance,
+            "is_onboarded": True
         }
     }
 

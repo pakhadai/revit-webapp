@@ -1,4 +1,5 @@
 # backend/main.py - ВИПРАВЛЕНА ВЕРСІЯ
+import datetime
 import os
 import asyncio
 import logging
@@ -10,44 +11,39 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
-from api.user_settings import router as user_settings_router
-from api.marketplace import router as marketplace_router
-from static_files import setup_static_files
-from limiter import limiter
-from pathlib import Path
+from pydantic import BaseModel
 
 # Імпорти для роботи з БД
 from database import engine, Base, async_session
 from models import *
-from data.mock_data import mock_archives_list
 from sqlalchemy import select, func
-from scheduler import scheduler
 
-# ВАЖЛИВО: Імпортуємо роутери з пакету api, використовуючи імена,
-# які задані у файлі api/__init__.py
-from api import (
-    auth_router,
-    archives_router,
-    orders_router,
-    admin_router,
-    subscriptions_router,
-    bonuses_router,
-    referrals_router,
-    vip_router,
-    payments_router,
-    downloads_router,
-    favorites_router,
-    history_router,
-    ratings_router,
-    notifications_router,
-    comments_router,
-    promo_codes_router,
-    uploads_router
-)
+# Імпорти роутерів - ВИПРАВЛЕНО
+from api.auth import router as auth_router
+from api.archives import router as archives_router
+from api.orders import router as orders_router
+from api.admin import router as admin_router
+from api.subscriptions import router as subscriptions_router
+from api.bonuses import router as bonuses_router
+from api.referrals import router as referrals_router
+from api.vip import router as vip_router
+from api.payments import router as payments_router
+from api.downloads import router as downloads_router
+from api.favorites import router as favorites_router
+from api.history import router as history_router
+from api.ratings import router as ratings_router
+from api.notifications import router as notifications_router
+from api.comments import router as comments_router
+from api.promo_codes import router as promo_codes_router
+from api.uploads import router as uploads_router
+from api.user_settings import router as user_settings_router
+from api.marketplace import router as marketplace_router
 
+from static_files import setup_static_files
+from limiter import limiter
 from config import settings
 
-# Налаштування логування (ваш код залишається без змін)
+# Налаштування логування
 log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 log_file = "app.log"
 file_handler = RotatingFileHandler(log_file, maxBytes=10 * 1024 * 1024, backupCount=5)
@@ -61,72 +57,71 @@ logger.addHandler(console_handler)
 logger = logging.getLogger(__name__)
 
 
-class RemoteLog(BaseModel):
-    level: str = 'INFO'
-    message: str
-    extra: Dict[str, Any] = {}
-
-@app.post("/api/log")
-async def remote_log(log_entry: RemoteLog):
-    """
-    Приймає лог-повідомлення від фронтенду і виводить їх у консоль сервера.
-    """
-    print(f"[FRONTEND LOG | {log_entry.level.upper()}] {log_entry.message}")
-    if log_entry.extra:
-        print(f"    └── Extra data: {log_entry.extra}")
-    return {"status": "logged"}
-
+# Функція ініціалізації БД
 async def init_db():
+    """Створення всіх таблиць в БД"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database tables verified/created.")
-        # await seed_data()
-
-async def seed_data():
-    async with async_session() as session:
-        result = await session.execute(select(func.count(Archive.id)))
-        if result.scalar_one() == 0:
-            logger.info("Database is empty. Seeding mock archives...")
-            for archive_data in mock_archives_list:
-                session.add(Archive(**archive_data))
-            await session.commit()
-            logger.info("Mock archives have been seeded.")
+        logger.info("Database tables created/verified")
 
 
+# Lifespan manager для ініціалізації при старті
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Application startup...")
+    # Startup
+    logger.info("Starting up...")
     await init_db()
-    scheduler_task = asyncio.create_task(scheduler.start())
     yield
-    scheduler.stop()
-    logger.info("Application shutdown.")
+    # Shutdown
+    logger.info("Shutting down...")
 
 
-# --- СТВОРЕННЯ ДОДАТКУ ---
-app = FastAPI(title="RevitBot Web API", version="1.0.0", lifespan=lifespan)
-setup_static_files(app)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-os.makedirs("media/archives", exist_ok=True)
-os.makedirs("media/images", exist_ok=True)
+# Створюємо FastAPI додаток
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.VERSION,
+    lifespan=lifespan
+)
 
-# Монтуємо тільки якщо папка існує
-if os.path.exists("media"):
-    app.mount("/media", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "media")), name="media")
-
-# --- CORS MIDDLEWARE ---
+# CORS налаштування
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"]
 )
 
-# --- ПІДКЛЮЧЕННЯ ВСІХ РОУТЕРІВ ---
-# Тепер ми використовуємо правильні імена роутерів, які імпортували вище
+# Rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Монтуємо статичні файли та медіа
+app.mount("/media", StaticFiles(directory="media"), name="media")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Налаштування для роздачі frontend
+setup_static_files(app)
+
+
+# Модель для логування з фронтенду
+class RemoteLog(BaseModel):
+    level: str = 'INFO'
+    message: str
+    extra: Dict[str, Any] = {}
+
+
+# Ендпоінт для логування з фронтенду
+@app.post("/api/log")
+async def remote_log(log_entry: RemoteLog):
+    """Приймає лог-повідомлення від фронтенду"""
+    print(f"[FRONTEND | {log_entry.level}] {log_entry.message}")
+    if log_entry.extra:
+        print(f"  └── Extra: {log_entry.extra}")
+    return {"status": "logged"}
+
+
+# Підключаємо всі роутери
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(archives_router, prefix="/api/archives", tags=["archives"])
 app.include_router(orders_router, prefix="/api/orders", tags=["orders"])
@@ -147,24 +142,70 @@ app.include_router(uploads_router, prefix="/api/uploads", tags=["uploads"])
 app.include_router(user_settings_router, prefix="/api/users", tags=["user-settings"])
 app.include_router(marketplace_router, prefix="/api/marketplace", tags=["marketplace"])
 
+
+# Основні ендпоінти
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok"}
+    """Перевірка працездатності API"""
+    return {"status": "ok", "version": settings.VERSION}
+
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "message": "RevitBot API is running", "version": "1.0.0"}
+    """Кореневий ендпоінт"""
+    return {
+        "status": "ok",
+        "message": "RevitBot API is running",
+        "version": settings.VERSION,
+        "docs": "/docs"
+    }
 
-@app.get("/api/test-promo")
-async def test_promo():
-    return {"status": "ok", "message": "Promo codes module is loaded"}
+
+@app.get("/api/test")
+async def test_endpoint():
+    """Тестовий ендпоінт для перевірки"""
+    return {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "message": "API is working correctly"
+    }
+
 
 @app.get("/api/debug/routes")
 async def debug_routes():
+    """Показати всі доступні роути (тільки в DEV режимі)"""
+    if not settings.DEBUG:
+        return {"error": "Not available in production"}
+
     routes = []
     for route in app.routes:
         if hasattr(route, "path"):
-            routes.append({"path": route.path, "name": route.name, "methods": list(route.methods) if hasattr(route, "methods") else None})
-    return {"total_routes": len(routes), "promo_routes": [r for r in routes if "promo" in r["path"]], "all_routes": routes}
+            routes.append({
+                "path": route.path,
+                "name": route.name,
+                "methods": list(route.methods) if hasattr(route, "methods") else None
+            })
 
-logger.info("FastAPI application created with all routers")
+    return {
+        "total_routes": len(routes),
+        "routes": sorted(routes, key=lambda x: x["path"])
+    }
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    print(f"Request: {request.method} {request.url}")
+    print(f"Headers: {request.headers}")
+    response = await call_next(request)
+    return response
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8001,
+        reload=True
+    )

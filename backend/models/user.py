@@ -25,6 +25,7 @@ class User(Base):
     last_name = Column(String, nullable=True)
     language_code = Column(String, default="ua")
     avatar_url = Column(String, nullable=True)  # URL аватара
+    is_onboarded = Column(Boolean, default=False)
 
     # Роль і права (ВАЖЛИВО - використовуємо SQLEnum правильно)
     role = Column(SQLEnum(UserRole), default=UserRole.USER)
