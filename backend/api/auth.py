@@ -195,95 +195,123 @@ async def telegram_auth(
         request: Dict,
         session: AsyncSession = Depends(get_session)
 ):
-    """Авторизація через Telegram Web App"""
+    """Авторизація через Telegram Web App або в режимі розробки"""
 
     init_data = request.get("init_data", "")
 
-    if not init_data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No init_data provided"
+    # --- ЄДИНА ЗМІНА: БЛОК IF/ELSE ---
+
+    if init_data == "dev_mode=true":
+        # === РЕЖИМ РОЗРОБКИ (ДЛЯ САЙТУ) ===
+        logger.info("Running in DEV (website) mode.")
+        dev_telegram_id = "123456789"  # Статичний ID для тестового юзера
+
+        result = await session.execute(
+            select(User).where(User.telegram_id == dev_telegram_id)
         )
-
-    # Перевіряємо дані від Telegram
-    telegram_data = verify_telegram_data(init_data)
-
-    if 'user' not in telegram_data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No user data in init_data"
-        )
-
-    tg_user = telegram_data['user']
-    telegram_id = str(tg_user['id'])
-
-    # Шукаємо користувача в БД
-    result = await session.execute(
-        select(User).where(User.telegram_id == telegram_id)
-    )
-    user = result.scalar_one_or_none()
-
-    # Визначаємо роль
-    user_role = UserRole.USER
-    if telegram_id in ADMIN_TELEGRAM_IDS:
-        user_role = UserRole.ADMIN
-
-    if not user:
-        # Створюємо нового користувача
-        logger.info(f"Creating new user: {telegram_id}")
-
-        # Отримуємо аватар
-        avatar_url = await get_telegram_avatar(int(telegram_id))
-
-        # Генеруємо реферальний код
-        referral_code = hashlib.md5(f"{telegram_id}_{datetime.now()}".encode()).hexdigest()[:8]
-
-        user = User(
-            telegram_id=telegram_id,
-            username=tg_user.get('username'),
-            first_name=tg_user.get('first_name'),
-            last_name=tg_user.get('last_name'),
-            language_code=tg_user.get('language_code', 'en')[:2],  # Беремо тільки мову (ua, en, ru)
-            is_premium=tg_user.get('is_premium', False),
-            avatar_url=avatar_url,
-            role=user_role,
-            referral_code=referral_code,
-            bonus_balance=settings.WELCOME_BONUS_AMOUNT,  # Бонус за реєстрацію
-            created_at=datetime.now(),
-            last_active=datetime.now()
-        )
-
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
-
-        is_new_user = True
-    else:
-        # Оновлюємо існуючого користувача
-        logger.info(f"Updating existing user: {telegram_id}")
-
-        # Оновлюємо аватар, якщо немає
-        if not user.avatar_url:
-            user.avatar_url = await get_telegram_avatar(int(telegram_id))
-
-        # Оновлюємо дані
-        user.username = tg_user.get('username') or user.username
-        user.first_name = tg_user.get('first_name') or user.first_name
-        user.last_name = tg_user.get('last_name') or user.last_name
-        user.language_code = tg_user.get('language_code', user.language_code)[:2]
-        user.is_premium = tg_user.get('is_premium', False)
-        user.last_active = datetime.now()
-
-        # Оновлюємо роль, якщо став адміном
-        if telegram_id in ADMIN_TELEGRAM_IDS and user.role == UserRole.USER:
-            user.role = UserRole.ADMIN
-
-        await session.commit()
-        await session.refresh(user)
-
+        user = result.scalar_one_or_none()
         is_new_user = False
 
-    # Створюємо токен
+        if not user:
+            logger.info(f"Creating new DEV user: {dev_telegram_id}")
+            referral_code = hashlib.md5(f"{dev_telegram_id}_{datetime.now()}".encode()).hexdigest()[:8]
+            user = User(
+                telegram_id=dev_telegram_id,
+                username="dev_user",
+                first_name="Dev",
+                last_name="User",
+                language_code='uk',
+                role=UserRole.ADMIN,  # Робимо адміном для зручності
+                referral_code=referral_code,
+                bonus_balance=settings.WELCOME_BONUS_AMOUNT,
+                created_at=datetime.now(),
+                last_active=datetime.now()
+            )
+            session.add(user)
+            await session.commit()
+            await session.refresh(user)
+            is_new_user = True
+        else:
+            user.last_active = datetime.now()
+            await session.commit()
+            await session.refresh(user)
+
+    else:
+        #
+        # === ВАШ ОРИГІНАЛЬНИЙ КОД ПОЧИНАЄТЬСЯ ТУТ (БЕЗ ЗМІН) ===
+        #
+        if not init_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No init_data provided"
+            )
+
+        telegram_data = verify_telegram_data(init_data)
+
+        if 'user' not in telegram_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No user data in init_data"
+            )
+
+        tg_user = telegram_data['user']
+        telegram_id = str(tg_user['id'])
+
+        result = await session.execute(
+            select(User).where(User.telegram_id == telegram_id)
+        )
+        user = result.scalar_one_or_none()
+
+        user_role = UserRole.USER
+        if telegram_id in ADMIN_TELEGRAM_IDS:
+            user_role = UserRole.ADMIN
+
+        if not user:
+            logger.info(f"Creating new user: {telegram_id}")
+            avatar_url = await get_telegram_avatar(int(telegram_id))
+            referral_code = hashlib.md5(f"{telegram_id}_{datetime.now()}".encode()).hexdigest()[:8]
+
+            user = User(
+                telegram_id=telegram_id,
+                username=tg_user.get('username'),
+                first_name=tg_user.get('first_name'),
+                last_name=tg_user.get('last_name'),
+                language_code=tg_user.get('language_code', 'en')[:2],
+                is_premium=tg_user.get('is_premium', False),
+                avatar_url=avatar_url,
+                role=user_role,
+                referral_code=referral_code,
+                bonus_balance=settings.WELCOME_BONUS_AMOUNT,
+                created_at=datetime.now(),
+                last_active=datetime.now()
+            )
+            session.add(user)
+            await session.commit()
+            await session.refresh(user)
+            is_new_user = True
+        else:
+            logger.info(f"Updating existing user: {telegram_id}")
+            if not user.avatar_url:
+                user.avatar_url = await get_telegram_avatar(int(telegram_id))
+
+            user.username = tg_user.get('username') or user.username
+            user.first_name = tg_user.get('first_name') or user.first_name
+            user.last_name = tg_user.get('last_name') or user.last_name
+            user.language_code = tg_user.get('language_code', user.language_code)[:2]
+            user.is_premium = tg_user.get('is_premium', False)
+            user.last_active = datetime.now()
+
+            if telegram_id in ADMIN_TELEGRAM_IDS and user.role == UserRole.USER:
+                user.role = UserRole.ADMIN
+
+            await session.commit()
+            await session.refresh(user)
+            is_new_user = False
+        #
+        # === ВАШ ОРИГІНАЛЬНИЙ КОД ЗАКІНЧУЄТЬСЯ ТУТ ===
+        #
+
+    # Створення токену (ваш код)
     access_token = create_access_token(
         data={
             "sub": str(user.id),
@@ -292,7 +320,7 @@ async def telegram_auth(
         }
     )
 
-    # Формуємо відповідь
+    # Формування відповіді (ваш код)
     return {
         "success": True,
         "access_token": access_token,

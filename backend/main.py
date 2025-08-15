@@ -3,7 +3,8 @@ import os
 import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Body
+from typing import Any, Dict
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -60,7 +61,21 @@ logger.addHandler(console_handler)
 logger = logging.getLogger(__name__)
 
 
-# --- ЛОГІКА ЗАПУСКУ ТА НАПОВНЕННЯ БД --- (код без змін)
+class RemoteLog(BaseModel):
+    level: str = 'INFO'
+    message: str
+    extra: Dict[str, Any] = {}
+
+@app.post("/api/log")
+async def remote_log(log_entry: RemoteLog):
+    """
+    Приймає лог-повідомлення від фронтенду і виводить їх у консоль сервера.
+    """
+    print(f"[FRONTEND LOG | {log_entry.level.upper()}] {log_entry.message}")
+    if log_entry.extra:
+        print(f"    └── Extra data: {log_entry.extra}")
+    return {"status": "logged"}
+
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

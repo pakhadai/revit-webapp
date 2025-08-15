@@ -1,4 +1,4 @@
-// RevitBot Web App - Основний файл (БЕЗ офлайн режиму)
+// RevitBot Web App - Основний файл (ПОВНА ВЕРСІЯ З ВИПРАВЛЕННЯМИ)
 import { config } from './config.js';
 
 (function() {
@@ -186,11 +186,19 @@ import { config } from './config.js';
                     this.enableAdminFeatures();
                 }
 
-                // Завантажуємо головну сторінку
-                await this.loadPage('home');
+                // --- ВИПРАВЛЕННЯ №2: Логіка запуску онбордингу ---
+                await this.loadScript('js/modules/onboarding.js');
+                const isNew = await window.OnboardingModule.checkIfNewUser(this);
 
-                // Перевіряємо нового користувача
-                if (authResult.is_new_user) {
+                if (isNew) {
+                    await window.OnboardingModule.showWelcome(this);
+                } else {
+                    await this.loadPage('home');
+                }
+                // --- КІНЕЦЬ ВИПРАВЛЕННЯ №2 ---
+
+                // Перевіряємо нового користувача (повідомлення)
+                if (authResult.is_new_user && !isNew) { // Показуємо тільки якщо онбординг не був показаний
                     this.showWelcomeMessage();
                 }
 
@@ -200,9 +208,28 @@ import { config } from './config.js';
             }
         }
 
+        // --- ВИПРАВЛЕННЯ №1: Додана відсутня функція ---
+        loadScript(src) {
+            return new Promise((resolve, reject) => {
+                if (document.querySelector(`script[src="${src}"]`)) {
+                    return resolve(); // Вже завантажено
+                }
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => resolve();
+                script.onerror = () => reject(new Error(`Script load error for ${src}`));
+                document.head.append(script);
+            });
+        }
+
         async authenticate() {
             try {
                 const initData = this.tg.getInitData();
+                this.tg.showAlert(`DEBUG :: initData = [${initData}]`);
+
+                if (!initData) {
+                    throw new Error("Дані запуску від Telegram порожні. Будь ласка, відкрийте додаток через меню бота.");
+                }
 
                 const response = await this.api.post('/api/auth/telegram', {
                     init_data: initData
@@ -223,7 +250,8 @@ import { config } from './config.js';
                 return { success: false };
             } catch (error) {
                 console.error('Auth error:', error);
-                return { success: false };
+                // Повертаємо помилку, щоб її обробив блок catch в init()
+                throw error;
             }
         }
 
@@ -459,7 +487,8 @@ import { config } from './config.js';
 
         async loadTranslations() {
             try {
-                const response = await fetch(`/locales/${this.currentLang}.json`);
+                const lang = (this.currentLang === 'uk') ? 'ua' : this.currentLang;
+                const response = await fetch(`/locales/${lang}.json`);
                 if (response.ok) {
                     this.translations = await response.json();
                 }
