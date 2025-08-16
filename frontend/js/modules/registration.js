@@ -473,51 +473,80 @@ window.RegistrationModule = {
     },
 
     async completeRegistration() {
-        try {
-            // Показуємо індикатор завантаження
-            const content = document.getElementById('registration-content');
-            content.innerHTML = `
-                <div class="success-icon">⏳</div>
-                <h1 class="registration-title">${this.t('loading')}</h1>
-            `;
+    try {
+        // Показуємо індикатор завантаження
+        const content = document.getElementById('registration-content');
+        content.innerHTML = `
+            <div class="success-icon">⏳</div>
+            <h1 class="registration-title">${this.t('loading')}</h1>
+        `;
 
-            // Відправляємо запит з токеном
-            const response = await fetch('/api/auth/complete-onboarding', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.app.storage.get('auth_token')}`
-                },
-                body: JSON.stringify({
-                    language: this.lang,
-                    referral_code: this.referralCode
-                })
-            });
-
-            if (response.ok) {
-                // Показуємо успіх
-                this.currentStep = 5;
-                this.updateContent();
-
-                // Закриваємо модалку через 2 секунди
-                setTimeout(() => {
-                    const modal = document.getElementById('registration-modal');
-                    if (modal) {
-                        modal.style.animation = 'slideOut 0.3s ease forwards';
-                        setTimeout(() => {
-                            modal.remove();
-                            // Перезавантажуємо додаток
-                            window.location.reload();
-                        }, 300);
-                    }
-                }, 2000);
-            } else {
-                throw new Error('Registration failed');
-            }
-        } catch (error) {
-            console.error('Registration error:', error);
-            this.app.tg.showAlert(this.t('error'));
+        // Отримуємо токен
+        const token = this.app.storage.get('auth_token');
+        if (!token) {
+            throw new Error('No auth token found');
         }
+
+        // Відправляємо запит з токеном
+        const response = await fetch('http://localhost:8001/api/auth/complete-onboarding', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                language: this.lang,
+                referral_code: this.referralCode
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+
+            // Оновлюємо користувача в storage
+            const user = this.app.storage.get('user');
+            if (user) {
+                user.is_onboarded = true;
+                user.bonus_balance = data.bonus_balance || 0;
+                this.app.storage.set('user', user);
+            }
+
+            // Показуємо успіх
+            this.currentStep = 5;
+            this.updateContent();
+
+            // Закриваємо модалку через 2 секунди
+            setTimeout(() => {
+                const modal = document.getElementById('registration-modal');
+                if (modal) {
+                    modal.style.animation = 'slideOut 0.3s ease forwards';
+                    setTimeout(() => {
+                        modal.remove();
+                        // Оновлюємо інтерфейс
+                        if (this.app.currentPage === 'home' && window.HomeModule) {
+                            window.HomeModule.init(this.app);
+                        }
+                    }, 300);
+                }
+            }, 2000);
+        } else {
+            const error = await response.text();
+            throw new Error(error || 'Registration failed');
+        }
+    } catch (error) {
+        console.error('Registration error:', error);
+
+        // Показуємо помилку
+        const content = document.getElementById('registration-content');
+        content.innerHTML = `
+            <div class="success-icon">❌</div>
+            <h1 class="registration-title">${this.t('error')}</h1>
+            <p class="registration-text">${error.message}</p>
+            <button class="registration-btn registration-btn-primary"
+                    onclick="window.RegistrationModule.currentStep = 4; window.RegistrationModule.updateContent();">
+                Спробувати ще раз
+            </button>
+        `;
     }
 };
 

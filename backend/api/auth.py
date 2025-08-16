@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from database import get_session
 from models import User, UserRole
-from models import BonusTransaction, BonusTransactionType
 from config import settings
 from datetime import datetime, timedelta
 from typing import Optional, Dict
@@ -304,13 +303,12 @@ async def telegram_auth(request: Dict, session: AsyncSession = Depends(get_sessi
                         logger.info(f"Updated avatar for user {telegram_id}")
                 except Exception as e:
                     logger.error(f"Avatar update error: {e}")
-
-            user.username = tg_user.get('username') or user.username
-            user.first_name = tg_user.get('first_name') or user.first_name
-            user.last_name = tg_user.get('last_name') or user.last_name
-            user.language_code = tg_user.get('language_code', user.language_code)[:2]
-            user.is_premium = tg_user.get('is_premium', False)
-            user.last_active = datetime.now()
+                    user.username = tg_user.get('username') or user.username
+                    user.first_name = tg_user.get('first_name') or user.first_name
+                    user.last_name = tg_user.get('last_name') or user.last_name
+                    user.language_code = tg_user.get('language_code', user.language_code)[:2]
+                    user.is_premium = tg_user.get('is_premium', False)
+                    user.last_active = datetime.now()
 
             # Оновлюємо роль якщо користувач став адміном
             if telegram_id in ADMIN_TELEGRAM_IDS and user.role == UserRole.USER:
