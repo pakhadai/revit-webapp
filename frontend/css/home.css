@@ -1,0 +1,574 @@
+/* frontend/css/home.css */
+/* Стилі для головної сторінки з Сімейством тижня та міні-грою */
+
+.home-page {
+    padding: 1rem;
+    max-width: 100%;
+    animation: fadeIn 0.3s ease;
+}
+
+/* Привітання */
+.welcome-section {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, var(--tg-theme-bg-color) 0%, rgba(var(--tg-theme-button-color-rgb), 0.1) 100%);
+    border-radius: 16px;
+}
+
+.welcome-title {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--tg-theme-text-color);
+    margin-bottom: 0.5rem;
+}
+
+.welcome-subtitle {
+    color: var(--tg-theme-hint-color);
+    font-size: 0.9rem;
+}
+
+/* Сімейство тижня - ГОЛОВНИЙ БЛОК */
+.weekly-family-section {
+    margin-bottom: 2rem;
+    animation: slideInUp 0.4s ease;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 0 0.5rem;
+}
+
+.section-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--tg-theme-text-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.timer {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.8rem;
+    background: rgba(255, 87, 34, 0.1);
+    border: 1px solid rgba(255, 87, 34, 0.3);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: #ff5722;
+    font-weight: 600;
+}
+
+.timer-icon {
+    animation: pulse 1s infinite;
+}
+
+.timer-text {
+    font-family: 'Courier New', monospace;
+}
+
+/* Картка Сімейства тижня */
+.weekly-family-card {
+    background: var(--tg-theme-bg-color);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    border: 2px solid var(--tg-theme-button-color);
+    position: relative;
+}
+
+.weekly-card-content {
+    position: relative;
+}
+
+.weekly-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 10;
+    background: linear-gradient(135deg, #ff5722, #ff9800);
+    padding: 0.5rem 1rem;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(255, 87, 34, 0.4);
+    animation: bounceIn 0.5s ease;
+}
+
+.badge-discount {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+}
+
+.badge-label {
+    display: block;
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.9);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.weekly-image {
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #f5f5f5, #e0e0e0);
+}
+
+.weekly-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.weekly-details {
+    padding: 1.5rem;
+}
+
+.weekly-title {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: var(--tg-theme-text-color);
+    margin-bottom: 0.5rem;
+}
+
+.weekly-description {
+    color: var(--tg-theme-hint-color);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    line-height: 1.4;
+}
+
+.weekly-prices {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.price-original {
+    font-size: 1.1rem;
+    color: var(--tg-theme-hint-color);
+    text-decoration: line-through;
+}
+
+.price-discount {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #4caf50;
+}
+
+.weekly-benefits {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: rgba(var(--tg-theme-button-color-rgb), 0.05);
+    border-radius: 12px;
+}
+
+.benefit-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--tg-theme-text-color);
+}
+
+.benefit-icon {
+    font-size: 1.1rem;
+}
+
+.weekly-actions {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 0.8rem;
+}
+
+.weekly-buy-btn {
+    background: linear-gradient(135deg, #4caf50, #45a049);
+    color: white;
+    border: none;
+    padding: 1rem;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.weekly-buy-btn:active {
+    transform: scale(0.98);
+}
+
+.weekly-view-btn {
+    background: rgba(var(--tg-theme-button-color-rgb), 0.1);
+    color: var(--tg-theme-button-color);
+    border: 1px solid var(--tg-theme-button-color);
+    padding: 1rem;
+    border-radius: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+/* Міні-гра секція */
+.mini-game-section {
+    margin-bottom: 2rem;
+}
+
+.game-banner {
+    background: linear-gradient(135deg, #9c27b0, #673ab7);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 20px rgba(156, 39, 176, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.game-banner::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: rotate 20s linear infinite;
+}
+
+.game-info {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+}
+
+.game-title {
+    color: white;
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin-bottom: 0.3rem;
+}
+
+.game-description {
+    color: rgba(255,255,255,0.9);
+    font-size: 0.85rem;
+    margin-bottom: 0.8rem;
+}
+
+.game-stats {
+    display: flex;
+    gap: 1rem;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: rgba(255,255,255,0.9);
+    font-size: 0.8rem;
+}
+
+.stat-item strong {
+    color: white;
+}
+
+.game-play-btn {
+    background: white;
+    color: #9c27b0;
+    border: none;
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    position: relative;
+    z-index: 1;
+}
+
+.game-play-btn:active {
+    transform: scale(0.95);
+}
+
+.btn-icon {
+    font-size: 1.3rem;
+    animation: bounce 2s infinite;
+}
+
+/* Швидкі дії */
+.quick-actions {
+    margin-bottom: 2rem;
+}
+
+.section-subtitle {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--tg-theme-text-color);
+    margin-bottom: 1rem;
+    padding: 0 0.5rem;
+}
+
+.action-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.action-card {
+    background: var(--tg-theme-bg-color);
+    border: 1px solid rgba(var(--tg-theme-button-color-rgb), 0.2);
+    border-radius: 12px;
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.action-card:active {
+    transform: scale(0.98);
+    background: rgba(var(--tg-theme-button-color-rgb), 0.1);
+}
+
+.action-icon {
+    font-size: 2rem;
+}
+
+.action-label {
+    font-size: 0.9rem;
+    color: var(--tg-theme-text-color);
+    font-weight: 500;
+}
+
+.action-badge {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: #ff5722;
+    color: white;
+    padding: 0.2rem 0.5rem;
+    border-radius: 8px;
+    font-size: 0.6rem;
+    font-weight: bold;
+}
+
+.action-count {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: var(--tg-theme-button-color);
+    color: white;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: bold;
+}
+
+/* Статистика */
+.stats-section {
+    margin-bottom: 2rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.8rem;
+}
+
+.stat-card {
+    background: rgba(var(--tg-theme-button-color-rgb), 0.05);
+    border-radius: 12px;
+    padding: 1rem 0.5rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.stat-card.vip-card {
+    background: linear-gradient(135deg, #ffd700, #ffb347);
+    color: white;
+}
+
+.stat-value {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: var(--tg-theme-button-color);
+}
+
+.vip-card .stat-value {
+    color: white;
+    font-size: 1.8rem;
+}
+
+.stat-label {
+    font-size: 0.7rem;
+    color: var(--tg-theme-hint-color);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.vip-card .stat-label {
+    color: rgba(255,255,255,0.9);
+}
+
+/* Новини */
+.news-section {
+    margin-bottom: 2rem;
+}
+
+.news-list {
+    background: var(--tg-theme-bg-color);
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid rgba(var(--tg-theme-button-color-rgb), 0.1);
+}
+
+.news-item {
+    display: flex;
+    gap: 1rem;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid rgba(var(--tg-theme-button-color-rgb), 0.05);
+}
+
+.news-item:last-child {
+    border-bottom: none;
+}
+
+.news-date {
+    font-size: 0.75rem;
+    color: var(--tg-theme-hint-color);
+    min-width: 80px;
+}
+
+.news-text {
+    font-size: 0.85rem;
+    color: var(--tg-theme-text-color);
+    flex: 1;
+}
+
+/* Анімації */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes bounceIn {
+    0% {
+        transform: scale(0.3);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    70% {
+        transform: scale(0.9);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Адаптивність */
+@media (max-width: 360px) {
+    .action-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .weekly-actions {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Темна тема */
+@media (prefers-color-scheme: dark) {
+    .weekly-family-card {
+        background: #1a1a1a;
+        border-color: #333;
+    }
+
+    .action-card {
+        background: #1a1a1a;
+    }
+
+    .news-list {
+        background: #1a1a1a;
+    }
+}

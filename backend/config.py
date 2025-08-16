@@ -31,12 +31,12 @@ class Settings(BaseSettings):
     # Payment
     CRYPTOMUS_MERCHANT_UUID: Optional[str] = None
     CRYPTOMUS_API_KEY: Optional[str] = None
-    CRYPTOMUS_WEBHOOK_SECRET: Optional[str] = None  # Секрет для вебхуків
+    CRYPTOMUS_WEBHOOK_SECRET: Optional[str] = None
 
-    APP_URL: str = "https://02aba47285f1.ngrok-free.app/"  # Змініть на вашу адресу
+    APP_URL: str = ""
 
     # Development
-    DEV_MODE: bool = True
+    DEV_MODE: bool = False
 
     # Paths
     BASE_DIR: Path = Path(__file__).resolve().parent

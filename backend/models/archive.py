@@ -3,6 +3,7 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, Text, JSON, ForeignKey
 from sqlalchemy.sql import func
 from database import Base
+from sqlalchemy.orm import relationship
 
 
 class Archive(Base):
@@ -19,6 +20,8 @@ class Archive(Base):
     image_paths = Column(JSON, default=list)  # Список шляхів до зображень
     file_path = Column(String, nullable=True)  # Шлях до архіву
     file_size = Column(Integer, nullable=True)  # Розмір файлу в байтах
+
+    weekly_specials = relationship("WeeklySpecial", back_populates="archive")
 
     # Pricing
     price = Column(Float, default=0.0)
