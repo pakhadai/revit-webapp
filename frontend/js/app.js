@@ -292,11 +292,12 @@ class RevitWebApp {
             this.displayUserInfo();
 
             await this.loadScript('js/modules/onboarding.js');
-            const isNew = await window.OnboardingModule.checkIfNewUser(this);
 
-            if (isNew) {
+            if (await window.OnboardingModule.checkIfNewUser(this)) {
                 await window.OnboardingModule.showWelcome(this);
-            } else {
+            }
+
+            else {
                 await this.loadPage('home');
             }
 
