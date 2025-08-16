@@ -1,4 +1,6 @@
 # backend/api/auth.py
+import traceback
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -149,6 +151,7 @@ def verify_telegram_data(init_data: str) -> Dict:
 async def get_telegram_avatar(telegram_id: int) -> Optional[str]:
     """Отримання URL аватара користувача через Telegram Bot API"""
     if not settings.BOT_TOKEN:
+        logger.warning("No BOT_TOKEN for avatar fetch")
         return None
 
     try:
@@ -160,29 +163,37 @@ async def get_telegram_avatar(telegram_id: int) -> Optional[str]:
             )
 
             if response.status_code != 200:
+                logger.error(f"Failed to get photos: {response.status_code}")
                 return None
 
             data = response.json()
-            if not data.get("ok") or not data.get("result", {}).get("photos"):
+
+            if not data.get("ok"):
+                logger.error(f"Telegram API error: {data.get('description')}")
+                return None
+
+            photos = data.get("result", {}).get("photos", [])
+
+            if not photos or not photos[0]:
+                logger.info(f"No avatar for user {telegram_id}")
                 return None
 
             # Беремо перше фото, найменший розмір
-            photos = data["result"]["photos"]
-            if photos and photos[0]:
-                file_id = photos[0][0]["file_id"]  # Перше фото, найменший розмір
+            file_id = photos[0][0]["file_id"]
 
-                # Отримуємо шлях до файлу
-                file_response = await client.get(
-                    f"https://api.telegram.org/bot{settings.BOT_TOKEN}/getFile",
-                    params={"file_id": file_id}
-                )
+            # Отримуємо шлях до файлу
+            file_response = await client.get(
+                f"https://api.telegram.org/bot{settings.BOT_TOKEN}/getFile",
+                params={"file_id": file_id}
+            )
 
-                if file_response.status_code == 200:
-                    file_data = file_response.json()
-                    if file_data.get("ok") and file_data.get("result", {}).get("file_path"):
-                        file_path = file_data["result"]["file_path"]
-                        # Повертаємо URL для завантаження
-                        return f"https://api.telegram.org/file/bot{settings.BOT_TOKEN}/{file_path}"
+            if file_response.status_code == 200:
+                file_data = file_response.json()
+                if file_data.get("ok") and file_data.get("result", {}).get("file_path"):
+                    file_path = file_data["result"]["file_path"]
+                    avatar_url = f"https://api.telegram.org/file/bot{settings.BOT_TOKEN}/{file_path}"
+                    logger.info(f"Avatar URL for {telegram_id}: {avatar_url}")
+                    return avatar_url
 
     except Exception as e:
         logger.error(f"Failed to get avatar for user {telegram_id}: {e}")
@@ -192,55 +203,25 @@ async def get_telegram_avatar(telegram_id: int) -> Optional[str]:
 
 @router.post("/telegram")
 async def telegram_auth(request: Dict, session: AsyncSession = Depends(get_session)):
-    print(f"AUTH REQUEST: {request}")
+    """Авторизація через Telegram Web App"""
+
     init_data = request.get("init_data", "")
-    print(f"INIT DATA: {init_data}")
+    is_new_user = False
 
-    if init_data == "dev_mode=true":
-        # === РЕЖИМ РОЗРОБКИ (ДЛЯ САЙТУ) ===
-        logger.info("Running in DEV (website) mode.")
-        dev_telegram_id = "123456789"
+    logger.info(f"=== AUTH REQUEST ===")
+    logger.info(f"Init data received: {init_data[:100]}...")  # Логуємо перші 100 символів
 
-        result = await session.execute(
-            select(User).where(User.telegram_id == dev_telegram_id)
+    # ВАЖЛИВО: Перевіряємо чи це справжні дані від Telegram
+    if not init_data or init_data == "dev_mode=true":
+        # Якщо немає даних від Telegram - повертаємо помилку
+        logger.error("No valid Telegram data received!")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No Telegram data. Please open app through Telegram bot."
         )
-        user = result.scalar_one_or_none()
-        is_new_user = False
 
-        if not user:
-            logger.info(f"Creating new DEV user: {dev_telegram_id}")
-            referral_code = hashlib.md5(f"{dev_telegram_id}_{datetime.now()}".encode()).hexdigest()[:8]
-            user = User(
-                telegram_id=dev_telegram_id,
-                username="dev_user",
-                first_name="Dev",
-                last_name="User",
-                language_code='uk',
-                role=UserRole.ADMIN,  # Робимо адміном для зручності
-                referral_code=referral_code,
-                bonus_balance=settings.WELCOME_BONUS_AMOUNT,
-                created_at=datetime.now(),
-                last_active=datetime.now()
-            )
-            session.add(user)
-            await session.commit()
-            await session.refresh(user)
-            is_new_user = True
-        else:
-            user.last_active = datetime.now()
-            await session.commit()
-            await session.refresh(user)
-
-    else:
-        #
-        # === ВАШ ОРИГІНАЛЬНИЙ КОД ПОЧИНАЄТЬСЯ ТУТ (БЕЗ ЗМІН) ===
-        #
-        if not init_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No init_data provided"
-            )
-
+    try:
+        # Верифікуємо дані від Telegram
         telegram_data = verify_telegram_data(init_data)
 
         if 'user' not in telegram_data:
@@ -252,19 +233,34 @@ async def telegram_auth(request: Dict, session: AsyncSession = Depends(get_sessi
         tg_user = telegram_data['user']
         telegram_id = str(tg_user['id'])
 
+        logger.info(f"Processing Telegram user: {telegram_id} (@{tg_user.get('username')})")
+
+        # Перевіряємо чи є користувач в базі
         result = await session.execute(
             select(User).where(User.telegram_id == telegram_id)
         )
         user = result.scalar_one_or_none()
 
+        # Визначаємо роль
         user_role = UserRole.USER
         if telegram_id in ADMIN_TELEGRAM_IDS:
             user_role = UserRole.ADMIN
+            logger.info(f"User {telegram_id} is ADMIN")
 
         if not user:
+            # Створюємо нового користувача
             logger.info(f"Creating new user: {telegram_id}")
-            avatar_url = await get_telegram_avatar(int(telegram_id))
+
             referral_code = hashlib.md5(f"{telegram_id}_{datetime.now()}".encode()).hexdigest()[:8]
+
+            # Завантажуємо аватар
+            avatar_url = None
+            try:
+                avatar_url = await get_telegram_avatar(int(telegram_id))
+                if avatar_url:
+                    logger.info(f"Got avatar for new user: {avatar_url[:50]}...")
+            except Exception as e:
+                logger.error(f"Avatar fetch error: {e}")
 
             user = User(
                 telegram_id=telegram_id,
@@ -273,7 +269,7 @@ async def telegram_auth(request: Dict, session: AsyncSession = Depends(get_sessi
                 last_name=tg_user.get('last_name'),
                 language_code=tg_user.get('language_code', 'en')[:2],
                 is_premium=tg_user.get('is_premium', False),
-                avatar_url=avatar_url,
+                avatar_url=avatar_url,  # Зберігаємо аватар
                 role=user_role,
                 referral_code=referral_code,
                 bonus_balance=settings.WELCOME_BONUS_AMOUNT,
@@ -285,83 +281,95 @@ async def telegram_auth(request: Dict, session: AsyncSession = Depends(get_sessi
             await session.refresh(user)
             is_new_user = True
         else:
+            # Оновлюємо існуючого користувача
             logger.info(f"Updating existing user: {telegram_id}")
+
+            # Оновлюємо аватар якщо його немає
             if not user.avatar_url:
-                user.avatar_url = await get_telegram_avatar(int(telegram_id))
+                try:
+                    user.avatar_url = await get_telegram_avatar(int(telegram_id))
+                    if user.avatar_url:
+                        logger.info(f"Updated avatar for user {telegram_id}")
+                except Exception as e:
+                    logger.error(f"Avatar update error: {e}")
+                    user.username = tg_user.get('username') or user.username
+                    user.first_name = tg_user.get('first_name') or user.first_name
+                    user.last_name = tg_user.get('last_name') or user.last_name
+                    user.language_code = tg_user.get('language_code', user.language_code)[:2]
+                    user.is_premium = tg_user.get('is_premium', False)
+                    user.last_active = datetime.now()
 
-            user.username = tg_user.get('username') or user.username
-            user.first_name = tg_user.get('first_name') or user.first_name
-            user.last_name = tg_user.get('last_name') or user.last_name
-            user.language_code = tg_user.get('language_code', user.language_code)[:2]
-            user.is_premium = tg_user.get('is_premium', False)
-            user.last_active = datetime.now()
-
+            # Оновлюємо роль якщо користувач став адміном
             if telegram_id in ADMIN_TELEGRAM_IDS and user.role == UserRole.USER:
                 user.role = UserRole.ADMIN
+                logger.info(f"User {telegram_id} promoted to ADMIN")
 
             await session.commit()
             await session.refresh(user)
-            is_new_user = False
 
-    access_token = create_access_token(
-        data={
-            "sub": str(user.id),
-            "telegram_id": user.telegram_id,
-            "role": user.role.value
-        }
-    )
+        # Створюємо токен
+        access_token = create_access_token(
+            data={
+                "sub": str(user.id),
+                "telegram_id": user.telegram_id,
+                "role": user.role.value
+            }
+        )
 
-    # Формування відповіді (ваш код)
-    return {
-        "success": True,
-        "access_token": access_token,
-        "token_type": "bearer",
-        "is_new_user": is_new_user,
-        "user": {
-            "id": user.id,
-            "telegram_id": user.telegram_id,
-            "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "language_code": user.language_code,
-            "avatar_url": user.avatar_url,
-            "role": user.role.value,
-            "is_admin": user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN],
-            "is_premium": user.is_premium,
-            "has_subscription": user.has_subscription,
-            "bonus_balance": user.bonus_balance,
-            "vip_level": user.vip_level,
-            "referral_code": user.referral_code,
-            "created_at": user.created_at.isoformat() if user.created_at else None
+        # Формуємо відповідь
+        return {
+            "success": True,
+            "access_token": access_token,
+            "token_type": "bearer",
+            "is_new_user": is_new_user,
+            "user": {
+                "id": user.id,
+                "telegram_id": user.telegram_id,
+                "username": user.username,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "language_code": user.language_code,
+                "avatar_url": user.avatar_url,
+                "role": user.role.value,
+                "is_admin": user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN],
+                "is_premium": user.is_premium,
+                "has_subscription": user.has_subscription,
+                "bonuses": user.bonus_balance,
+                "vip_level": user.vip_level,
+                "referral_code": user.referral_code,
+                "created_at": user.created_at.isoformat() if user.created_at else None
+            }
         }
-    }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Auth error: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Authentication failed: {str(e)}"
+        )
 
 
 @router.post("/complete-onboarding")
 async def complete_onboarding(
-        request: Dict,
+        data: dict,
         current_user: User = Depends(get_current_user_dependency),
         session: AsyncSession = Depends(get_session)
 ):
-    """Завершення онбордингу"""
+    """Завершити онбордінг"""
 
-    # Оновлюємо дані користувача
-    current_user.language_code = request.get("language", "ua")
+    # Оновлюємо користувача
     current_user.is_onboarded = True
 
-    await session.commit()
+    # Якщо є реферальний код
+    if data.get("referral_code"):
+        # Логіка обробки реферального коду
+        pass
 
-    return {
-        "success": True,
-        "user": {
-            "id": current_user.id,
-            "telegram_id": current_user.telegram_id,
-            "username": current_user.username,
-            "language_code": current_user.language_code,
-            "balance": current_user.balance,
-            "is_onboarded": True
-        }
-    }
+    await session.commit()
+    return {"success": True}
 
 
 @router.get("/me")

@@ -13,11 +13,11 @@ window.AdminModule = {
                     <div class="admin-actions" style="margin-bottom: 30px;">
                         <h3 style="margin-bottom: 15px;">⚡ Швидкі дії</h3>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                            ${this.getActionButton('👥 Користувачі', 'Переглянути всіх користувачів', 'AdminModule.showUsers(window.app)')}
-                            ${this.getActionButton('🛒 Замовлення', 'Управління замовленнями', 'AdminModule.showOrders(window.app)')}
-                            ${this.getActionButton('📦 Товари', 'Управління каталогом', 'AdminModule.showArchives(window.app)')}
-                            ${this.getActionButton('📊 Статистика', 'Детальна аналітика', 'AdminModule.showStats(window.app)')}
-                            ${this.getActionButton('🎟️ Промокоди', 'Створити та керувати знижками', 'AdminPromoCodesModule.showPage(window.app)')}
+                            ${this.getActionButton('👥 Користувачі', 'Переглянути всіх користувачів', 'window.AdminModule.showUsers(window.app)')}
+                            ${this.getActionButton('🛒 Замовлення', 'Управління замовленнями', 'window.AdminModule.showOrders(window.app)')}
+                            ${this.getActionButton('📦 Товари', 'Управління каталогом', 'window.AdminModule.showArchives(window.app)')}
+                            ${this.getActionButton('📊 Статистика', 'Детальна аналітика', 'window.AdminModule.showStats(window.app)')}
+                            ${this.getActionButton('🎟️ Промокоди', 'Створити та керувати знижками', 'window.AdminModule.showPromoCodes(window.app)')}
                         </div>
                     </div>
 
@@ -91,29 +91,42 @@ window.AdminModule = {
 
     // --- СТОРІНКА КОРИСТУВАЧІВ ---
     async showUsers(app) {
+        const content = document.getElementById('app-content');
+        content.innerHTML = `<div class="loader-container"><div class="loader"></div></div>`;
+
         try {
             const users = await app.api.get('/api/admin/users?page=1&limit=50');
 
-            const content = document.getElementById('app-content');
+            // Перевіряємо чи отримали правильні дані
+            const usersList = users.users || users.items || users;
+
+            if (!Array.isArray(usersList)) {
+                throw new Error('Неправильний формат даних користувачів');
+            }
+
             content.innerHTML = `
-                <div class="admin-users p-3">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h2>👥 Користувачі (${users.pagination.total})</h2>
-                        <button onclick="window.app.loadPage('admin')" style="padding: 8px 16px; background: var(--tg-theme-secondary-bg-color); border: none; border-radius: 6px; cursor: pointer;">← Назад</button>
+                <div class="admin-section p-3">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                        <h2>👥 Користувачі (${usersList.length})</h2>
+                        <button onclick="window.app.loadPage('admin')"
+                                style="padding: 10px 20px; background: var(--tg-theme-secondary-bg-color); border: none; border-radius: 8px;">
+                            ← Назад
+                        </button>
                     </div>
 
                     <div class="users-list">
-                        ${users.users.map(user => `
-                            <div class="user-card" style="background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
+                        ${usersList.map(user => `
+                            <div style="background: var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 15px; margin-bottom: 10px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <div>
-                                        <strong>${user.full_name}</strong>
-                                        <div style="font-size: 14px; color: var(--tg-theme-hint-color);">@${user.username || 'немає'} • ID: ${user.user_id}</div>
-                                        <div style="font-size: 12px; color: var(--tg-theme-hint-color);">Реєстрація: ${new Date(user.created_at).toLocaleDateString('uk-UA')}</div>
+                                        <strong>${user.first_name || ''} ${user.last_name || ''}</strong>
+                                        ${user.username ? `<span style="color: var(--tg-theme-hint-color);">@${user.username}</span>` : ''}
+                                        <div style="font-size: 12px; color: var(--tg-theme-hint-color); margin-top: 5px;">
+                                            ID: ${user.telegram_id} | Бонуси: ${user.bonus_balance || 0}
+                                        </div>
                                     </div>
-                                    <div style="text-align: right;">
-                                        <div style="color: var(--primary-color); font-weight: bold;">${user.bonuses} 💎</div>
-                                        <div style="font-size: 12px; color: ${user.is_admin ? 'red' : 'green'};">${user.role}</div>
+                                    <div>
+                                        ${user.role === 'admin' ? '<span style="background: var(--primary-color); color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Admin</span>' : ''}
                                     </div>
                                 </div>
                             </div>
@@ -122,7 +135,17 @@ window.AdminModule = {
                 </div>
             `;
         } catch (error) {
-            app.showError(`Помилка завантаження користувачів: ${error.message}`);
+            console.error('Users load error:', error);
+            content.innerHTML = `
+                <div class="error-page p-3">
+                    <h2>❌ Помилка завантаження користувачів</h2>
+                    <p>${error.message}</p>
+                    <button onclick="window.app.loadPage('admin')"
+                            style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 8px;">
+                        ← Назад до панелі
+                    </button>
+                </div>
+            `;
         }
     },
 
@@ -365,6 +388,59 @@ window.AdminModule = {
             `;
         } catch (error) {
             app.showError(`Помилка завантаження статистики: ${error.message}`);
+        }
+    },
+
+    async showPromoCodes(app) {
+        try {
+            // Завантажуємо модуль промокодів якщо його немає
+            if (!window.AdminPromoCodesModule) {
+                await app.loadScript('js/modules/admin-promo-codes.js');
+            }
+
+            // Викликаємо метод показу сторінки
+            if (window.AdminPromoCodesModule && window.AdminPromoCodesModule.showPage) {
+                await window.AdminPromoCodesModule.showPage(app);
+            } else {
+                throw new Error('Модуль промокодів не завантажився');
+            }
+        } catch (error) {
+            console.error('Promo codes error:', error);
+            const content = document.getElementById('app-content');
+            content.innerHTML = `
+                <div class="error-page p-3">
+                    <h2>❌ Помилка</h2>
+                    <p>${error.message}</p>
+                    <button onclick="window.app.loadPage('admin')"
+                            style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 8px;">
+                        ← Назад
+                    </button>
+                </div>
+            `;
+        }
+    },
+
+    async showCreateForm(app) {
+        try {
+            // Завантажуємо модуль форм якщо його немає
+            if (!window.AdminModule.createArchive) {
+                await app.loadScript('js/modules/admin-forms.js');
+            }
+
+            // Завантажуємо модуль завантаження файлів
+            if (!window.AdminUploadModule) {
+                await app.loadScript('js/modules/admin-upload.js');
+            }
+
+            // Тепер викликаємо метод з admin-forms.js
+            if (window.AdminModule.showCreateForm) {
+                window.AdminModule.showCreateForm(app);
+            } else {
+                throw new Error('Метод створення форми не знайдено');
+            }
+        } catch (error) {
+            console.error('Create form error:', error);
+            app.showError('Помилка завантаження форми: ' + error.message);
         }
     },
 

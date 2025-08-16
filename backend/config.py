@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     CRYPTOMUS_API_KEY: Optional[str] = None
     CRYPTOMUS_WEBHOOK_SECRET: Optional[str] = None  # Секрет для вебхуків
 
-    APP_URL: str = "https://a24b8419252d.ngrok-free.app/"  # Змініть на вашу адресу
+    APP_URL: str = "https://b235ccd1e28a.ngrok-free.app/"  # Змініть на вашу адресу
 
     # Development
     DEV_MODE: bool = True

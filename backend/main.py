@@ -4,6 +4,8 @@ import os
 import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from fastapi.responses import FileResponse
 from fastapi import FastAPI, Request, Body
 from typing import Any, Dict
 from fastapi.staticfiles import StaticFiles
@@ -20,6 +22,7 @@ from sqlalchemy import select, func
 
 # Імпорти роутерів - ВИПРАВЛЕНО
 from api.auth import router as auth_router
+from api.auth_fallback import router as fallback_router
 from api.archives import router as archives_router
 from api.orders import router as orders_router
 from api.admin import router as admin_router
@@ -100,6 +103,11 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.mount("/media", StaticFiles(directory="media"), name="media")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
+@app.get("/telegram")
+async def telegram_redirect():
+    """Перенаправлення з /telegram на головну сторінку"""
+    return FileResponse(Path(__file__).parent / "frontend" / "index.html")
 # Налаштування для роздачі frontend
 setup_static_files(app)
 
@@ -123,6 +131,7 @@ async def remote_log(log_entry: RemoteLog):
 
 # Підключаємо всі роутери
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+app.include_router(fallback_router, prefix="/api/auth", tags=["auth"])
 app.include_router(archives_router, prefix="/api/archives", tags=["archives"])
 app.include_router(orders_router, prefix="/api/orders", tags=["orders"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])

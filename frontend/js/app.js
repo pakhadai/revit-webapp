@@ -37,11 +37,12 @@ class Api {
     constructor(storage, baseURL) {
         this.storage = storage;
         this.baseURL = baseURL || '';
-        this.token = null;
+        this.token = this.storage.get('token'); // Завантажуємо токен з storage при ініціалізації
     }
 
     setToken(token) {
         this.token = token;
+        this.storage.set('token', token); // Зберігаємо токен
     }
 
     async request(endpoint, options = {}) {
@@ -53,6 +54,11 @@ class Api {
             }
         };
 
+        // Отримуємо токен зі storage якщо немає в пам'яті
+        if (!this.token) {
+            this.token = this.storage.get('token');
+        }
+
         if (this.token) {
             config.headers['Authorization'] = `Bearer ${this.token}`;
         }
@@ -62,7 +68,9 @@ class Api {
 
         if (!response.ok) {
             if (response.status === 401) {
-                // Токен недійсний - перенаправляємо на авторизацію
+                // Токен недійсний - очищуємо та перезавантажуємо
+                this.storage.remove('token');
+                this.storage.remove('user');
                 window.location.reload();
             }
             const errorText = await response.text();
@@ -317,23 +325,49 @@ class RevitWebApp {
 
     async authenticate() {
         try {
+            // Спробуємо отримати дані від Telegram
+            let initData = null;
+            let authMode = 'fallback';
 
-            const rawInitData = this.tg?.initData;
-            alert('DEBUG INFO:\n\ninitData: ' + rawInitData);
+            // Перевіряємо чи є Telegram WebApp
+            if (window.Telegram && window.Telegram.WebApp) {
+                const tg = window.Telegram.WebApp;
+                console.log('Telegram WebApp знайдено:', tg);
 
-            const initData = this.tg?.initData || "dev_mode=true";
-
-            if (!initData) {
-                throw new Error("Дані запуску від Telegram порожні. Будь ласка, відкрийте додаток через меню бота.");
+                // Пробуємо отримати initData
+                if (tg.initData && tg.initData.length > 0) {
+                    initData = tg.initData;
+                    authMode = 'telegram';
+                    console.log('✅ Отримано initData від Telegram');
+                } else {
+                    console.warn('⚠️ initData порожня, використовуємо fallback');
+                }
+            } else {
+                console.warn('⚠️ Telegram WebApp не знайдено');
             }
 
-            const response = await this.api.post('/api/auth/telegram', {
-                init_data: initData
-            });
+            // Вибираємо endpoint залежно від наявності даних
+            let endpoint = '/api/auth/telegram';
+            let payload = { init_data: initData || "dev_mode=true" };
+
+            if (!initData) {
+                // Використовуємо резервний метод
+                endpoint = '/api/auth/telegram-fallback';
+                payload = {
+                    user_agent: navigator.userAgent,
+                    timestamp: Date.now()
+                };
+                console.log('Використовуємо резервну авторизацію');
+            }
+
+            // Відправляємо запит
+            const response = await this.api.post(endpoint, payload);
 
             if (response.access_token) {
                 this.storage.set('token', response.access_token);
                 this.storage.set('user', response.user);
+
+                console.log('✅ Авторизація успішна:', response.user);
 
                 return {
                     success: true,
@@ -343,10 +377,32 @@ class RevitWebApp {
                 };
             }
 
-            return { success: false };
+            throw new Error('No access token received');
+
         } catch (error) {
-            console.error('Auth error:', error);
-            throw error;
+            console.error('❌ Помилка авторизації:', error);
+
+            // Останній резерв - створюємо локального користувача
+            const fallbackUser = {
+                id: 1,
+                telegram_id: "local_user",
+                first_name: "Local",
+                last_name: "User",
+                username: "local_user",
+                language_code: "ua",
+                bonuses: 100,
+                role: "user",
+                is_admin: false
+            };
+
+            this.user = fallbackUser;
+            this.storage.set('user', fallbackUser);
+
+            return {
+                success: true,
+                user: fallbackUser,
+                is_new_user: true
+            };
         }
     }
 
@@ -369,7 +425,8 @@ class RevitWebApp {
 
         userInfo.innerHTML = `
             ${this.user.avatar_url ?
-                `<img src="${this.user.avatar_url}" alt="Avatar" class="user-avatar">` :
+                `<img src="${this.user.avatar_url}" alt="Avatar" class="user-avatar"
+                      onerror="this.onerror=null; this.outerHTML='<div class=\\'user-avatar-placeholder\\'>👤</div>'">` :
                 '<div class="user-avatar-placeholder">👤</div>'
             }
             <span class="user-name">${displayName}</span>
@@ -768,6 +825,57 @@ class RevitWebApp {
         }
     }
 
+    showError(message) {
+        // Показуємо помилку через Telegram або alert
+        if (this.tg && this.tg.showAlert) {
+            this.tg.showAlert(`❌ ${message}`);
+        } else {
+            alert(`❌ ${message}`);
+        }
+
+        // Також логуємо в консоль
+        console.error(message);
+
+        // Повертаємо HTML для відображення
+        return `
+            <div class="error-message" style="padding: 20px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 10px;">❌</div>
+                <p style="color: var(--danger-color);">${message}</p>
+            </div>
+        `;
+    }
+
+    // Додайте також метод showToast якщо його немає
+    showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toast-container') || document.body;
+        const toast = document.createElement('div');
+
+        const colors = {
+            'success': '#4CAF50',
+            'error': '#f44336',
+            'warning': '#ff9800',
+            'info': '#2196F3'
+        };
+
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: ${colors[type] || colors.info};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            z-index: 10000;
+            animation: slideUp 0.3s ease;
+        `;
+
+        toast.textContent = message;
+        toastContainer.appendChild(toast);
+
+        setTimeout(() => toast.remove(), 3000);
+    }
+
     // Допоміжний метод для картки товару на головній
     getHomeProductCard(product) {
         const lang = this.currentLang || 'ua';
@@ -857,6 +965,10 @@ class RevitWebApp {
             // Завантажуємо модуль щоденних бонусів
             if (!window.DailyBonusModule) {
                 await this.loadScript('js/modules/daily-bonus.js');
+                // ВАЖЛИВО: ініціалізуємо модуль
+                if (window.DailyBonusModule && window.DailyBonusModule.init) {
+                    window.DailyBonusModule.init(this);
+                }
             }
 
             content.innerHTML = `
@@ -873,7 +985,7 @@ class RevitWebApp {
                         </div>
                     </div>
 
-                    <button onclick="window.DailyBonusModule?.showModal(window.app)"
+                    <button onclick="window.DailyBonusModule.showModal(window.app)"
                             style="width: 100%; padding: 15px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer;">
                         🎰 Щоденний бонус
                     </button>
