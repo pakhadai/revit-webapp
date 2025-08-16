@@ -35,7 +35,6 @@ class Settings(BaseSettings):
 
     APP_URL: str = "https://a24b8419252d.ngrok-free.app/"  # Змініть на вашу адресу
 
-
     # Development
     DEV_MODE: bool = True
 
