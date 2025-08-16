@@ -37,12 +37,12 @@ class Api {
     constructor(storage, baseURL) {
         this.storage = storage;
         this.baseURL = baseURL || '';
-        this.token = this.storage.get('token'); // Завантажуємо токен з storage при ініціалізації
+        this.token = this.storage.get('auth_token'); // Завантажуємо токен з storage при ініціалізації
     }
 
     setToken(token) {
         this.token = token;
-        this.storage.set('token', token); // Зберігаємо токен
+        this.storage.set('auth_token', token); // Зберігаємо токен
     }
 
     async request(endpoint, options = {}) {
@@ -69,7 +69,7 @@ class Api {
         if (!response.ok) {
             if (response.status === 401) {
                 // Токен недійсний - очищуємо та перезавантажуємо
-                this.storage.remove('token');
+                this.storage.remove('auth_token');
                 this.storage.remove('user');
                 window.location.reload();
             }
@@ -293,15 +293,15 @@ class RevitWebApp {
 
             await this.loadScript('js/modules/onboarding.js');
 
-            if (await window.OnboardingModule.checkIfNewUser(this)) {
-                await window.OnboardingModule.showWelcome(this);
+            if (window.RegistrationModule) {
+                await window.RegistrationModule.init(this);
             }
 
             else {
                 await this.loadPage('home');
             }
 
-            if (authResult.is_new_user && !isNew) {
+            if (authResult.is_new_user) {
                 this.showWelcomeMessage();
             }
 
@@ -365,7 +365,7 @@ class RevitWebApp {
             const response = await this.api.post(endpoint, payload);
 
             if (response.access_token) {
-                this.storage.set('token', response.access_token);
+                this.storage.set('auth_token', response.access_token)
                 this.storage.set('user', response.user);
 
                 console.log('✅ Авторизація успішна:', response.user);
