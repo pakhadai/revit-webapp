@@ -280,6 +280,17 @@ async def telegram_auth(request: Dict, session: AsyncSession = Depends(get_sessi
             await session.commit()
             await session.refresh(user)
             is_new_user = True
+
+            transaction = BonusTransaction(
+                user_id=user.id,
+                amount=settings.WELCOME_BONUS_AMOUNT,
+                balance_after=user.bonus_balance,
+                type=BonusTransactionType.ADMIN_BONUS,
+                description="Welcome bonus for registration"
+            )
+            session.add(transaction)
+            await session.commit()
+
         else:
             # Оновлюємо існуючого користувача
             logger.info(f"Updating existing user: {telegram_id}")

@@ -92,34 +92,36 @@ window.AdminModule = {
     // --- СТОРІНКА КОРИСТУВАЧІВ ---
     async showUsers(app) {
         const content = document.getElementById('app-content');
-        content.innerHTML = `<div class="loader-container"><div class="loader"></div></div>`;
+        content.innerHTML = '<div class="loader-container"><div class="loader"></div></div>';
 
         try {
             const users = await app.api.get('/api/admin/users?page=1&limit=50');
 
-            // Перевіряємо чи отримали правильні дані
+            // Універсальна перевірка
             const usersList = users.users || users.items || users;
-
             if (!Array.isArray(usersList)) {
                 throw new Error('Неправильний формат даних користувачів');
             }
 
+            // Показуємо кількість: беремо total якщо є, інакше length
+            const totalUsers = users.pagination?.total || usersList.length;
+
             content.innerHTML = `
                 <div class="admin-section p-3">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-                        <h2>👥 Користувачі (${usersList.length})</h2>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2>👥 Користувачі (${totalUsers})</h2>
                         <button onclick="window.app.loadPage('admin')"
-                                style="padding: 10px 20px; background: var(--tg-theme-secondary-bg-color); border: none; border-radius: 8px;">
+                                style="padding: 8px 16px; background: var(--tg-theme-secondary-bg-color); border: none; border-radius: 6px; cursor: pointer;">
                             ← Назад
                         </button>
                     </div>
 
                     <div class="users-list">
                         ${usersList.map(user => `
-                            <div style="background: var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 15px; margin-bottom: 10px;">
+                            <div style="background: var(--tg-theme-bg-color); border: 1px solid var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 15px; margin-bottom: 10px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <div>
-                                        <strong>${user.first_name || ''} ${user.last_name || ''}</strong>
+                                        <strong>${user.first_name || user.username || 'User'} ${user.last_name || ''}</strong>
                                         ${user.username ? `<span style="color: var(--tg-theme-hint-color);">@${user.username}</span>` : ''}
                                         <div style="font-size: 12px; color: var(--tg-theme-hint-color); margin-top: 5px;">
                                             ID: ${user.telegram_id} | Бонуси: ${user.bonus_balance || 0}
@@ -136,18 +138,41 @@ window.AdminModule = {
             `;
         } catch (error) {
             console.error('Users load error:', error);
+            app.showError('❌ Помилка завантаження користувачів');
+        }
+    }
+
+    async showStatistics(app) {
+        const content = document.getElementById('app-content');
+        content.innerHTML = '<div class="loader-container"><div class="loader"></div></div>';
+
+        try {
+            const stats = await app.api.get('/api/admin/statistics');
+
             content.innerHTML = `
-                <div class="error-page p-3">
-                    <h2>❌ Помилка завантаження користувачів</h2>
-                    <p>${error.message}</p>
-                    <button onclick="window.app.loadPage('admin')"
-                            style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 8px;">
-                        ← Назад до панелі
-                    </button>
+                <div class="admin-section p-3">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2>📊 Статистика</h2>
+                        <button onclick="window.app.loadPage('admin')"
+                                style="padding: 8px 16px; background: var(--tg-theme-secondary-bg-color); border: none; border-radius: 6px; cursor: pointer;">
+                            ← Назад
+                        </button>
+                    </div>
+
+                    <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                        ${this.getStatCard('Користувачі', stats.users.total, `Нових сьогодні: ${stats.users.today}`)}
+                        ${this.getStatCard('Замовлення', stats.orders.total, `Сьогодні: ${stats.orders.today}`)}
+                        ${this.getStatCard('Дохід', `$${stats.revenue.total.toFixed(2)}`, `Сьогодні: $${stats.revenue.today.toFixed(2)}`)}
+                        ${this.getStatCard('Архіви', stats.archives.total, `Активних: ${stats.archives.active}`)}
+                        ${this.getStatCard('Підписки', stats.subscriptions.active, `Закінчуються: ${stats.subscriptions.expiring}`)}
+                        ${this.getStatCard('Бонуси', stats.bonuses.total_active, `Витрачено: ${stats.bonuses.total_spent}`)}
+                    </div>
                 </div>
             `;
+        } catch (error) {
+            app.showError('Помилка завантаження статистики');
         }
-    },
+    }
 
     // --- СТОРІНКА ЗАМОВЛЕНЬ ---
     async showOrders(app) {

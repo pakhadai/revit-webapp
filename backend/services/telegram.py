@@ -120,6 +120,23 @@ class TelegramService:
 
         return await self.send_message(user_id, text, reply_markup=reply_markup)
 
+    async def send_welcome_message(
+            self,
+            user_id: int,
+            lang: str = 'ua'
+    ):
+        """Відправити привітальне повідомлення новому користувачу"""
+
+        title = self.t('notifications.welcome.title', lang)
+        message = self.t('notifications.welcome.message', lang)
+
+        buttons = [{
+            "text": self.t('buttons.go_to_shop', lang),
+            "web_app": {"url": f"{settings.APP_URL}"}
+        }]
+
+        return await self.send_notification(user_id, title, message, buttons, lang)
+
     async def send_order_notification(
             self,
             user_id: int,

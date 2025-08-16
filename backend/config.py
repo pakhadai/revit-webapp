@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     CRYPTOMUS_API_KEY: Optional[str] = None
     CRYPTOMUS_WEBHOOK_SECRET: Optional[str] = None  # Секрет для вебхуків
 
-    APP_URL: str = "https://b235ccd1e28a.ngrok-free.app/"  # Змініть на вашу адресу
+    APP_URL: str = "https://02aba47285f1.ngrok-free.app/"  # Змініть на вашу адресу
 
     # Development
     DEV_MODE: bool = True
@@ -53,7 +53,8 @@ class Settings(BaseSettings):
     BONUS_PER_REFERRAL: int = 20
     BONUSES_PER_USD: int = 100
     BONUS_PURCHASE_CAP: float = 0.7
-    WELCOME_BONUS_AMOUNT: int = 0
+    # MAX_BONUS_PAYMENT_PERCENT = 70
+    WELCOME_BONUS_AMOUNT: int = 30
 
     # Cashback rates by VIP level
     VIP_BRONZE_CASHBACK: float = 0.03

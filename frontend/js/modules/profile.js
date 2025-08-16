@@ -9,17 +9,34 @@ window.ProfileModule = {
         const t = (key) => app.t(key);
         const user = app.user;
 
+        if (!user) {
+            return '<div class="p-3">Користувач не авторизований</div>';
+        }
+
+        // --- Зміни з другого файлу ---
+        // Ініціалізуємо статистику зі значень за замовчуванням або з об'єкта користувача
+        let stats = {
+            archives: user.purchased_archives_count || 0,
+            spent: user.total_spent || 0,
+            bonuses: user.bonus_balance || 0,
+            referrals: user.invited_count || 0
+        };
+
+        // Намагаємось завантажити актуальну статистику з API
+        try {
+            const profileData = await app.api.get('/api/profile/statistics');
+            if (profileData && profileData.statistics) {
+                stats = profileData.statistics;
+            }
+        } catch (error) {
+            console.error('Failed to load profile statistics from API:', error);
+            // Якщо сталася помилка, будемо використовувати дані, які вже є в об'єкті user
+        }
+        // --- Кінець змін ---
+
         // Отримуємо HTML для вбудованих блоків
         const vipBlockHtml = await window.VipModule.renderVipBlock(app);
         const referralBlockHtml = await window.ReferralsModule.renderReferralBlock(app);
-
-        // Дані для статистики (тимчасові, можна замінити на реальні з API)
-        const stats = {
-            archives: user.purchased_archives_count || 0, // Потрібно буде додати це поле в API
-            spent: user.total_spent || 0,
-            bonuses: user.bonus_balance || 0,
-            referrals: user.invited_count || 0 // Потрібно буде додати
-        };
 
         return `
             <div class="profile-page p-3">
@@ -37,19 +54,19 @@ window.ProfileModule = {
                 </div>
 
                 <div class="profile-stats-grid">
-                    ${this.renderStatCard('💎', `${stats.bonuses}`, t('bonuses'))}
-                    ${this.renderStatCard('📦', `${stats.archives}`, 'архівів куплено')}
-                    ${this.renderStatCard('💰', `$${stats.spent.toFixed(2)}`, 'всього витрачено')}
-                    ${this.renderStatCard('👥', `${stats.referrals}`, 'друзів запрошено')}
+                    ${this.renderStatCard('💎', `${stats.bonuses}`, t('profile.stats.bonuses'))}
+                    ${this.renderStatCard('📦', `${stats.archives}`, t('profile.stats.archives'))}
+                    ${this.renderStatCard('💰', `$${stats.spent.toFixed(2)}`, t('profile.stats.spent'))}
+                    ${this.renderStatCard('👥', `${stats.referrals}`, t('profile.stats.referrals'))}
                 </div>
 
                 <div class="profile-menu">
-                    ${this.renderMenuItem('📥', 'Мої завантаження', "window.app.loadPage('downloads')")}
-                    ${this.renderMenuItem('❤️', 'Мої обрані', "window.app.loadPage('favorites')")}
-                    ${this.renderMenuItem('📜', 'Історія переглядів', "window.app.loadPage('history')")}
-                    ${this.renderMenuItem('🚀', 'Кабінет розробника', "window.app.loadPage('marketplace')")}
-                    ${this.renderMenuItem('⚙️', 'Налаштування', "window.app.loadPage('settings')")}
-                    ${this.renderMenuItem('💬', 'Підтримка', "window.app.tg.openTelegramLink('https://t.me/revitbot_support')")}
+                    ${this.renderMenuItem('📥', t('profile.menu.downloads'), "window.app.loadPage('downloads')")}
+                    ${this.renderMenuItem('❤️', t('profile.menu.favorites'), "window.app.loadPage('favorites')")}
+                    ${this.renderMenuItem('📜', t('profile.menu.history'), "window.app.loadPage('history')")}
+                    ${this.renderMenuItem('🚀', t('profile.menu.marketplace'), "window.app.loadPage('marketplace')")}
+                    ${this.renderMenuItem('⚙️', t('profile.menu.settings'), "window.app.loadPage('settings')")}
+                    ${this.renderMenuItem('💬', t('profile.menu.support'), "window.app.tg.openTelegramLink('https://t.me/revitbot_support')")}
                 </div>
 
                 <div class="profile-widgets">
